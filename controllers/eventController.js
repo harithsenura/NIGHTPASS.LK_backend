@@ -16,10 +16,9 @@ const getEvents = async (req, res) => {
     }
 
     const events = await Event.find().sort({ createdAt: -1 });
-    await redis.set(cacheKey, events, { ex: 300 }); // Cache for 5 mins
+    await redis.set(cacheKey, events, { ex: 300 }); // Cache for 5 mins (letting SDK handle stringify)
     
     res.status(200).json(events);
-
 
   } catch (error) {
     res.status(500).json({ message: 'Error fetching events', error: error.message });
