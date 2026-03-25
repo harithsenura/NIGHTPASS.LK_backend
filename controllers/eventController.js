@@ -12,14 +12,13 @@ const getEvents = async (req, res) => {
     const cachedData = await redis.get(cacheKey);
     
     if (cachedData) {
-      return res.status(200).json(typeof cachedData === 'string' ? JSON.parse(cachedData) : cachedData);
+      return res.status(200).json(cachedData);
     }
 
     const events = await Event.find().sort({ createdAt: -1 });
-    await redis.set(cacheKey, events, { ex: 300 }); // Cache for 5 mins (letting SDK handle stringify)
+    await redis.set(cacheKey, JSON.stringify(events), { ex: 300 }); // Cache for 5 mins
     
     res.status(200).json(events);
-
   } catch (error) {
     res.status(500).json({ message: 'Error fetching events', error: error.message });
   }
@@ -33,7 +32,7 @@ const getEventById = async (req, res) => {
     const cachedData = await redis.get(cacheKey);
     
     if (cachedData) {
-      return res.status(200).json(typeof cachedData === 'string' ? JSON.parse(cachedData) : cachedData);
+      return res.status(200).json(cachedData);
     }
 
     const event = await Event.findById(req.params.id);
@@ -41,9 +40,8 @@ const getEventById = async (req, res) => {
       return res.status(404).json({ message: 'Event not found' });
     }
 
-    await redis.set(cacheKey, event, { ex: 600 }); // Cache for 10 mins
+    await redis.set(cacheKey, JSON.stringify(event), { ex: 600 }); // Cache for 10 mins
     res.status(200).json(event);
-
   } catch (error) {
     res.status(500).json({ message: 'Error fetching event', error: error.message });
   }
@@ -57,7 +55,7 @@ const getEventFullDetails = async (req, res) => {
     
     const cachedData = await redis.get(cacheKey);
     if (cachedData) {
-      return res.status(200).json(typeof cachedData === 'string' ? JSON.parse(cachedData) : cachedData);
+      return res.status(200).json(cachedData);
     }
 
     const [event, tickets] = await Promise.all([
@@ -70,10 +68,9 @@ const getEventFullDetails = async (req, res) => {
     }
 
     const fullDetails = { event, tickets };
-    await redis.set(cacheKey, fullDetails, { ex: 600 }); // Cache for 10 mins
+    await redis.set(cacheKey, JSON.stringify(fullDetails), { ex: 600 }); // Cache for 10 mins
 
     res.status(200).json(fullDetails);
-
   } catch (error) {
     res.status(500).json({ message: 'Error fetching full event details', error: error.message });
   }
