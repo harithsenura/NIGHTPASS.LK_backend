@@ -28,7 +28,7 @@ const getEventById = async (req, res) => {
 // Create a new event
 const createEvent = async (req, res) => {
   try {
-    const { title, date, venue, price, image, coverPhoto, attendees, status, artist, location, time } = req.body;
+    const { title, date, venue, price, image, coverPhoto, attendees, status, artist, location, time, trailerUrl } = req.body;
     
     const newEvent = new Event({
       title,
@@ -41,7 +41,8 @@ const createEvent = async (req, res) => {
       status,
       artist,
       location,
-      time
+      time,
+      trailerUrl
     });
 
     await newEvent.save();

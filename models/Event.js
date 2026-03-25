@@ -68,6 +68,9 @@ const eventSchema = new mongoose.Schema({
   },
   transportDriving: {
     type: String,
+  },
+  trailerUrl: {
+    type: String,
   }
 }, { timestamps: true });
 
