@@ -2,10 +2,12 @@ const Event = require('../models/Event');
 const User = require('../models/User');
 const TicketPurchase = require('../models/TicketPurchase');
 
-// Get all events
+// Get all events (exclude large fields for fast loading)
 const getEvents = async (req, res) => {
   try {
-    const events = await Event.find().sort({ createdAt: -1 });
+    const events = await Event.find()
+      .select('-image -coverPhoto -trailerUrl')
+      .sort({ createdAt: -1 });
     res.status(200).json(events);
   } catch (error) {
     res.status(500).json({ message: 'Error fetching events', error: error.message });
