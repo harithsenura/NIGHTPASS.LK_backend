@@ -4,7 +4,9 @@ const { getEvents, getEventById, createEvent, updateEvent, getAdminOverview } = 
 
 router.get('/', getEvents);
 router.get('/admin/overview', getAdminOverview);
+router.get('/:id/full', getEventFullDetails);
 router.get('/:id', getEventById);
+
 router.post('/', createEvent);
 router.put('/:id', updateEvent);
 

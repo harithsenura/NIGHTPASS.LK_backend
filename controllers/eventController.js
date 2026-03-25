@@ -1,29 +1,81 @@
 const Event = require('../models/Event');
 const User = require('../models/User');
 const TicketPurchase = require('../models/TicketPurchase');
+const Ticket = require('../models/Ticket');
+const redis = require('../redis');
+
 
 // Get all events
 const getEvents = async (req, res) => {
   try {
+    const cacheKey = 'events_all';
+    const cachedData = await redis.get(cacheKey);
+    
+    if (cachedData) {
+      return res.status(200).json(cachedData);
+    }
+
     const events = await Event.find().sort({ createdAt: -1 });
+    await redis.set(cacheKey, JSON.stringify(events), { ex: 300 }); // Cache for 5 mins
+    
     res.status(200).json(events);
   } catch (error) {
     res.status(500).json({ message: 'Error fetching events', error: error.message });
   }
 };
 
+
 // Get single event by ID
 const getEventById = async (req, res) => {
   try {
+    const cacheKey = `event:${req.params.id}`;
+    const cachedData = await redis.get(cacheKey);
+    
+    if (cachedData) {
+      return res.status(200).json(cachedData);
+    }
+
     const event = await Event.findById(req.params.id);
     if (!event) {
       return res.status(404).json({ message: 'Event not found' });
     }
+
+    await redis.set(cacheKey, JSON.stringify(event), { ex: 600 }); // Cache for 10 mins
     res.status(200).json(event);
   } catch (error) {
     res.status(500).json({ message: 'Error fetching event', error: error.message });
   }
 };
+
+// Get single event with tickets (Optimized for performance)
+const getEventFullDetails = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const cacheKey = `event_full:${id}`;
+    
+    const cachedData = await redis.get(cacheKey);
+    if (cachedData) {
+      return res.status(200).json(cachedData);
+    }
+
+    const [event, tickets] = await Promise.all([
+      Event.findById(id),
+      Ticket.find({ eventId: id })
+    ]);
+
+    if (!event) {
+      return res.status(404).json({ message: 'Event not found' });
+    }
+
+    const fullDetails = { event, tickets };
+    await redis.set(cacheKey, JSON.stringify(fullDetails), { ex: 600 }); // Cache for 10 mins
+
+    res.status(200).json(fullDetails);
+  } catch (error) {
+    res.status(500).json({ message: 'Error fetching full event details', error: error.message });
+  }
+};
+
 
 // Create a new event
 const createEvent = async (req, res) => {
@@ -65,7 +117,15 @@ const updateEvent = async (req, res) => {
       return res.status(404).json({ message: 'Event not found' });
     }
     
+    // Invalidate caches
+    await Promise.all([
+      redis.del(`event:${req.params.id}`),
+      redis.del(`event_full:${req.params.id}`),
+      redis.del('events_all') // Also invalidate general list
+    ]);
+    
     res.status(200).json(updatedEvent);
+
   } catch (error) {
     res.status(500).json({ message: 'Error updating event', error: error.message });
   }
@@ -164,7 +224,9 @@ const getAdminOverview = async (req, res) => {
 module.exports = {
   getEvents,
   getEventById,
+  getEventFullDetails,
   createEvent,
   updateEvent,
   getAdminOverview
 };
+
