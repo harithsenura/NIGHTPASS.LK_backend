@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const { getEvents, getEventById, createEvent, updateEvent, getAdminOverview } = require('../controllers/eventController');
+const { getEvents, getEventById, getEventFullDetails, createEvent, updateEvent, getAdminOverview } = require('../controllers/eventController');
 
 router.get('/', getEvents);
 router.get('/admin/overview', getAdminOverview);
