@@ -7,16 +7,8 @@ const getEvents = async (req, res) => {
   try {
     const events = await Event.find()
       .select('-trailerUrl')
-      .sort({ createdAt: -1 })
-      .lean();
-      
-    const allTickets = await Ticket.find().lean();
-    const eventsWithTickets = events.map(evt => ({
-      ...evt,
-      tickets: allTickets.filter(t => t.eventId.toString() === evt._id.toString())
-    }));
-      
-    res.status(200).json(eventsWithTickets);
+      .sort({ createdAt: -1 });
+    res.status(200).json(events);
   } catch (error) {
     res.status(500).json({ message: 'Error fetching events', error: error.message });
   }
@@ -26,15 +18,10 @@ const getEvents = async (req, res) => {
 const getEventById = async (req, res) => {
   try {
     const event = await Event.findById(req.params.id)
-      .select('-trailerUrl')
-      .lean();
-      
+      .select('-trailerUrl');
     if (!event) {
       return res.status(404).json({ message: 'Event not found' });
     }
-    
-    event.tickets = await Ticket.find({ eventId: event._id }).lean();
-    
     res.status(200).json(event);
   } catch (error) {
     res.status(500).json({ message: 'Error fetching event', error: error.message });
