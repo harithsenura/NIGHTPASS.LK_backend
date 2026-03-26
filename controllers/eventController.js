@@ -6,7 +6,7 @@ const TicketPurchase = require('../models/TicketPurchase');
 const getEvents = async (req, res) => {
   try {
     const events = await Event.find()
-      .select('-coverPhoto -trailerUrl')
+      .select('-trailerUrl')
       .sort({ createdAt: -1 });
     res.status(200).json(events);
   } catch (error) {
@@ -18,7 +18,7 @@ const getEvents = async (req, res) => {
 const getEventById = async (req, res) => {
   try {
     const event = await Event.findById(req.params.id)
-      .select('-coverPhoto -trailerUrl');
+      .select('-trailerUrl');
     if (!event) {
       return res.status(404).json({ message: 'Event not found' });
     }
