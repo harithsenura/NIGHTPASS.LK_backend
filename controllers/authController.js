@@ -82,7 +82,7 @@ const googleLogin = async (req, res) => {
     const { email, name } = req.body;
 
     // Check if user exists
-    let user = await User.findOne({ email });
+    let user = await User.findOne({ email }).lean();
 
     if (!user) {
       // Create new user if not exists
