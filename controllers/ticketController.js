@@ -18,7 +18,7 @@ const getEventTickets = async (req, res) => {
 // Create a new ticket (Admin)
 const createTicket = async (req, res) => {
   try {
-    const { eventId, name, price, quantity } = req.body;
+    const { eventId, name, price, quantity, customStatus } = req.body;
     
     // Check if event exists
     const event = await Event.findById(eventId);
@@ -30,7 +30,8 @@ const createTicket = async (req, res) => {
       eventId,
       name,
       price,
-      quantity
+      quantity,
+      customStatus
     });
 
     await newTicket.save();
@@ -44,11 +45,11 @@ const createTicket = async (req, res) => {
 const updateTicket = async (req, res) => {
   try {
     const { id } = req.params;
-    const { name, price, quantity } = req.body;
+    const { name, price, quantity, customStatus } = req.body;
     
     const ticket = await Ticket.findByIdAndUpdate(
       id,
-      { $set: { name, price, quantity } },
+      { $set: { name, price, quantity, customStatus } },
       { new: true, runValidators: true }
     );
 

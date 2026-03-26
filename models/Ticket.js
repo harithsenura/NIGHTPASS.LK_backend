@@ -21,6 +21,10 @@ const ticketSchema = new mongoose.Schema({
   sold: {
     type: Number,
     default: 0
+  },
+  customStatus: {
+    type: String,
+    default: ''
   }
 }, { timestamps: true });
 
