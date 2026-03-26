@@ -77,4 +77,45 @@ const signIn = async (req, res) => {
   }
 };
 
-module.exports = { signUp, signIn };
+const googleLogin = async (req, res) => {
+  try {
+    const { email, name } = req.body;
+
+    // Check if user exists
+    let user = await User.findOne({ email });
+
+    if (!user) {
+      // Create new user if not exists
+      // For Google users, we'll set a random password as it's required in the schema
+      const randomPassword = Math.random().toString(36).slice(-10);
+      const salt = await bcrypt.genSalt(10);
+      const hashedPassword = await bcrypt.hash(randomPassword, salt);
+
+      user = new User({
+        name,
+        email,
+        password: hashedPassword,
+      });
+
+      await user.save();
+    }
+
+    // Generate token
+    const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET, {
+      expiresIn: '7d',
+    });
+
+    res.status(200).json({
+      token,
+      user: {
+        id: user._id,
+        name: user.name,
+        email: user.email,
+      },
+    });
+  } catch (error) {
+    res.status(500).json({ message: 'Something went wrong on the server', error: error.message });
+  }
+};
+
+module.exports = { signUp, signIn, googleLogin };
