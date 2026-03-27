@@ -192,11 +192,44 @@ const getUserTickets = async (req, res) => {
   }
 };
 
+// Test Email Connectivity (Diagnostics)
+const testEmail = async (req, res) => {
+  try {
+    const { email } = req.body;
+    if (!email) {
+      return res.status(400).json({ message: 'Recipient email is required' });
+    }
+
+    console.log(`[DIAGNOSTICS] Running email test for: ${email}`);
+    const result = await sendEmail({
+      to: email,
+      subject: "NightPass Email Diagnostic Test",
+      data: {
+        customerName: "Diagnostic User",
+        eventName: "SYSTEM TEST",
+        eventDate: new Date().toLocaleString(),
+        purchaseId: "TEST-12345",
+        tickets: [{ name: "Standard Test", price: 0, qty: 1 }],
+        totalAmount: 0
+      }
+    });
+
+    if (result.success) {
+      res.status(200).json({ message: 'Test email sent successfully!', details: result });
+    } else {
+      res.status(500).json({ message: 'Test email failed to send', error: result.error });
+    }
+  } catch (error) {
+    res.status(500).json({ message: 'Server error during email test', error: error.message });
+  }
+};
+
 module.exports = {
   getEventTickets,
   createTicket,
   updateTicket,
   deleteTicket,
   buyTickets,
-  getUserTickets
+  getUserTickets,
+  testEmail
 };

@@ -2,21 +2,50 @@ const nodemailer = require('nodemailer');
 
 const sendEmail = async ({ to, subject, data }) => {
   try {
-    // Configure the transporter with explicit host for better production reliability
-    const transporter = nodemailer.createTransport({
-      host: "smtp.gmail.com",
-      port: 465,
-      secure: true, // Use SSL
-      auth: {
-        user: process.env.EMAIL_USER,
-        pass: process.env.EMAIL_APP_PASSWORD,
-      },
-      connectionTimeout: 10000, // 10 seconds timeout
-    });
-
-    console.log(`Starting email send process for: ${to}`);
-    if (!process.env.EMAIL_USER || !process.env.EMAIL_APP_PASSWORD) {
+    // Sanitize the app password (remove all whitespace which Google sometimes adds for readability)
+    const sanitizedPassword = (process.env.EMAIL_APP_PASSWORD || "").replace(/\s/g, "");
+    
+    if (!process.env.EMAIL_USER || !sanitizedPassword) {
       throw new Error("Missing EMAIL_USER or EMAIL_APP_PASSWORD environment variables");
+    }
+
+    let transporter;
+    const emailUser = process.env.EMAIL_USER;
+
+    // Retry logic with Port 587 (STARTTLS) priority, then 465 (SSL)
+    const tryConnect = async (port, secure) => {
+      console.log(`[SMTP] Attempting connection to gmail via Port ${port} (Secure: ${secure})...`);
+      const transport = nodemailer.createTransport({
+        host: "smtp.gmail.com",
+        port: port,
+        secure: secure,
+        auth: {
+          user: emailUser,
+          pass: sanitizedPassword,
+        },
+        connectionTimeout: 10000,
+        tls: {
+          rejectUnauthorized: false
+        }
+      });
+      await transport.verify();
+      return transport;
+    };
+
+    try {
+      // Step 1: Try Port 587 (More reliable on most cloud providers)
+      transporter = await tryConnect(587, false);
+      console.log("[SMTP] Port 587 verified successfully.");
+    } catch (err587) {
+      console.error(`[SMTP] Port 587 failed: ${err587.message}`);
+      try {
+        // Step 2: Fallback to Port 465
+        transporter = await tryConnect(465, true);
+        console.log("[SMTP] Port 465 verified successfully.");
+      } catch (err465) {
+        console.error(`[SMTP] Port 465 failed: ${err465.message}`);
+        throw new Error(`All SMTP ports (587, 465) failed. Detailed error: ${err465.message}`);
+      }
     }
 
     // Formatting date helper
