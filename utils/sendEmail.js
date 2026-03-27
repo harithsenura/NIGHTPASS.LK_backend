@@ -24,6 +24,8 @@ const sendEmail = async ({ to, subject, data }) => {
           pass: sanitizedPassword,
         },
         connectionTimeout: 10000,
+        debug: true, // Output debugging info
+        logger: true, // Log to console
         tls: {
           rejectUnauthorized: false
         }
@@ -163,7 +165,7 @@ const sendEmail = async ({ to, subject, data }) => {
     return { success: true, messageId: info.messageId };
   } catch (error) {
     console.error('Error sending email:', error);
-    return { success: false, error };
+    return { success: false, error: error.message || "Unknown SMTP error" };
   }
 };
 
