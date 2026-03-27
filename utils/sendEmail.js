@@ -80,7 +80,7 @@ const sendEmail = async ({ to, subject, data }) => {
     </html>`;
 
     const postData = JSON.stringify({
-      from: 'NightPass <onboarding@resend.dev>', // Default from for free tier
+      from: 'NightPass <tickets@nightpass.lk>', // Using the verified custom domain
       to: [to],
       subject: subject || `Your Tickets for ${data.eventName} - NightPass`,
       html: htmlTemplate,
