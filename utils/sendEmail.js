@@ -2,14 +2,22 @@ const nodemailer = require('nodemailer');
 
 const sendEmail = async ({ to, subject, data }) => {
   try {
-    // Determine the host for sending the email
+    // Configure the transporter with explicit host for better production reliability
     const transporter = nodemailer.createTransport({
-      service: 'gmail',
+      host: "smtp.gmail.com",
+      port: 465,
+      secure: true, // Use SSL
       auth: {
         user: process.env.EMAIL_USER,
         pass: process.env.EMAIL_APP_PASSWORD,
       },
+      connectionTimeout: 10000, // 10 seconds timeout
     });
+
+    console.log(`Starting email send process for: ${to}`);
+    if (!process.env.EMAIL_USER || !process.env.EMAIL_APP_PASSWORD) {
+      throw new Error("Missing EMAIL_USER or EMAIL_APP_PASSWORD environment variables");
+    }
 
     // Formatting date helper
     const formattedDate = data.eventDate || "Date TBD";

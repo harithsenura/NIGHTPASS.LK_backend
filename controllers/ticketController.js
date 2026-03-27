@@ -148,7 +148,8 @@ const buyTickets = async (req, res) => {
       if (recipientEmail) {
         const eventData = await Event.findById(eventId);
         if (eventData) {
-          sendEmail({
+          console.log(`Attempting to send ticket email to: ${recipientEmail} for event: ${eventData.title}`);
+          const emailResult = await sendEmail({
             to: recipientEmail,
             data: {
               customerName,
@@ -159,6 +160,12 @@ const buyTickets = async (req, res) => {
               totalAmount
             }
           });
+          
+          if (emailResult.success) {
+            console.log(`Email successfully sent to ${recipientEmail}`);
+          } else {
+            console.error(`Email failed to send to ${recipientEmail}:`, emailResult.error);
+          }
         }
       }
     } catch (emailErr) {
