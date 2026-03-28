@@ -106,15 +106,27 @@ const buyTickets = async (req, res) => {
 
     // After all checks pass, save the updates
     const processedTickets = [];
+    const eventIdShort = eventId.toString().slice(-4).toUpperCase();
+    
     for (const { dbTicket, qtyToBuy } of dbTickets) {
       dbTicket.sold += qtyToBuy;
       await dbTicket.save();
+
+      const ticketNameShort = dbTicket.name.slice(0, 3).toUpperCase();
+      const ticketIds = [];
+      
+      for (let i = 0; i < qtyToBuy; i++) {
+        const randomSuffix = Math.random().toString(36).slice(2, 8).toUpperCase();
+        const uniqueId = `NP-${eventIdShort}-${ticketNameShort}-${randomSuffix}`;
+        ticketIds.push(uniqueId);
+      }
 
       processedTickets.push({
         ticketId: dbTicket._id,
         name: dbTicket.name,
         price: dbTicket.price,
-        qty: qtyToBuy
+        qty: qtyToBuy,
+        ticketIds: ticketIds
       });
     }
 

@@ -25,7 +25,8 @@ const ticketPurchaseSchema = new mongoose.Schema({
     },
     name: String,
     price: Number,
-    qty: Number
+    qty: Number,
+    ticketIds: [String]
   }],
   totalAmount: {
     type: Number,
