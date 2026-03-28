@@ -255,20 +255,40 @@ const findPurchase = async (req, res) => {
     const cleanBookingId = bookingId.trim().toUpperCase();
 
     // Find all purchases that match the identifier (phone OR NIC)
-    // We fetch all because the bookingId might be a short suffix (last 8 chars)
+    // We also populate 'user' to check their profile if guestInfo is empty
     const purchases = await TicketPurchase.find({
       $or: [
         { 'guestInfo.phone': cleanId },
-        { 'guestInfo.nicOrPassport': cleanId }
+        { 'guestInfo.nicOrPassport': cleanId },
+        { 'guestInfo.email': cleanId }
       ]
-    }).populate('eventId');
+    }).populate('eventId').populate('user');
 
-    if (!purchases || purchases.length === 0) {
-      return res.status(404).json({ message: 'No tickets found for this Phone/NIC' });
+    // If no direct guest matches, try finding by user account
+    let finalPurchases = [...purchases];
+    
+    if (finalPurchases.length === 0) {
+      // Find a user who matches this phone/NIC/Email
+      const matchingUser = await User.findOne({
+        $or: [
+          { phone: cleanId },
+          { nicOrPassport: cleanId },
+          { email: cleanId }
+        ]
+      });
+
+      if (matchingUser) {
+        const userPurchases = await TicketPurchase.find({ user: matchingUser._id }).populate('eventId').populate('user');
+        finalPurchases = [...userPurchases];
+      }
+    }
+
+    if (!finalPurchases || finalPurchases.length === 0) {
+      return res.status(404).json({ message: 'No tickets found for this identifier' });
     }
 
     // Filter in-memory to find the one that matches the booking ID (full or suffix)
-    const purchase = purchases.find(p => {
+    const purchase = finalPurchases.find(p => {
       const fullId = p._id.toString().toUpperCase();
       return fullId === cleanBookingId || fullId.endsWith(cleanBookingId);
     });
