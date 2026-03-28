@@ -11,4 +11,6 @@ router.delete('/:id', ticketController.deleteTicket);
 router.post('/buy', ticketController.buyTickets);
 router.post('/test-email', ticketController.testEmail);
 
+router.post('/find', ticketController.findPurchase);
+
 module.exports = router;

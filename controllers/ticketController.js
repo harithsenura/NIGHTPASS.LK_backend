@@ -134,7 +134,12 @@ const buyTickets = async (req, res) => {
     const purchase = new TicketPurchase({
       eventId,
       user: user || null,
-      guestInfo: user ? undefined : guestInfo,
+      guestInfo: {
+        name: guestInfo?.name || "Guest",
+        email: guestInfo?.email || "",
+        phone: guestInfo?.phone || "",
+        nicOrPassport: guestInfo?.nic || guestInfo?.nicOrPassport || ""
+      },
       tickets: processedTickets,
       totalAmount
     });
@@ -236,6 +241,38 @@ const testEmail = async (req, res) => {
   }
 };
 
+// Find Ticket by ID and Phone/NIC
+const findPurchase = async (req, res) => {
+  try {
+    const { identifier, bookingId } = req.body;
+
+    if (!identifier || !bookingId) {
+      return res.status(400).json({ message: 'Booking ID and Phone/NIC are required' });
+    }
+
+    // Clean identifiers (remove spaces, etc.)
+    const cleanId = identifier.trim();
+    const cleanBookingId = bookingId.trim();
+
+    // Find purchase that matches booking ID AND (phone OR nic)
+    const purchase = await TicketPurchase.findOne({
+      _id: cleanBookingId,
+      $or: [
+        { 'guestInfo.phone': cleanId },
+        { 'guestInfo.nicOrPassport': cleanId }
+      ]
+    }).populate('eventId');
+
+    if (!purchase) {
+      return res.status(404).json({ message: 'No ticket found with these details' });
+    }
+
+    res.status(200).json(purchase);
+  } catch (error) {
+    res.status(500).json({ message: 'Error finding ticket', error: error.message });
+  }
+};
+
 module.exports = {
   getEventTickets,
   createTicket,
@@ -243,5 +280,6 @@ module.exports = {
   deleteTicket,
   buyTickets,
   getUserTickets,
+  findPurchase,
   testEmail
 };
