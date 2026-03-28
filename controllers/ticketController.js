@@ -252,23 +252,34 @@ const findPurchase = async (req, res) => {
 
     // Clean identifiers (remove spaces, etc.)
     const cleanId = identifier.trim();
-    const cleanBookingId = bookingId.trim();
+    const cleanBookingId = bookingId.trim().toUpperCase();
 
-    // Find purchase that matches booking ID AND (phone OR nic)
-    const purchase = await TicketPurchase.findOne({
-      _id: cleanBookingId,
+    // Find all purchases that match the identifier (phone OR NIC)
+    // We fetch all because the bookingId might be a short suffix (last 8 chars)
+    const purchases = await TicketPurchase.find({
       $or: [
         { 'guestInfo.phone': cleanId },
         { 'guestInfo.nicOrPassport': cleanId }
       ]
     }).populate('eventId');
 
+    if (!purchases || purchases.length === 0) {
+      return res.status(404).json({ message: 'No tickets found for this Phone/NIC' });
+    }
+
+    // Filter in-memory to find the one that matches the booking ID (full or suffix)
+    const purchase = purchases.find(p => {
+      const fullId = p._id.toString().toUpperCase();
+      return fullId === cleanBookingId || fullId.endsWith(cleanBookingId);
+    });
+
     if (!purchase) {
-      return res.status(404).json({ message: 'No ticket found with these details' });
+      return res.status(404).json({ message: 'No ticket found with this Booking ID for the given Phone/NIC' });
     }
 
     res.status(200).json(purchase);
   } catch (error) {
+    console.error("Error in findPurchase:", error);
     res.status(500).json({ message: 'Error finding ticket', error: error.message });
   }
 };
