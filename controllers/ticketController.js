@@ -142,7 +142,7 @@ const buyTickets = async (req, res) => {
       user: req.user ? req.user._id : (user || null),
       guestInfo: {
         name: sanitizeInput(guestInfo?.name || "Guest"),
-        email: sanitizeInput(guestInfo?.email || ""),
+        email: sanitizeInput(guestInfo?.email?.toLowerCase().trim() || ""),
         phone: sanitizeInput(guestInfo?.phone || ""),
         nicOrPassport: sanitizeInput(guestInfo?.nic || guestInfo?.nicOrPassport || "")
       },
@@ -218,7 +218,7 @@ const getUserTickets = async (req, res) => {
     const purchases = await TicketPurchase.find({
       $or: [
         { user: userId },
-        { "guestInfo.email": user.email }
+        { "guestInfo.email": { $regex: new RegExp(`^${user.email}$`, 'i') } }
       ]
     })
       .populate('eventId')
@@ -273,15 +273,16 @@ const findPurchase = async (req, res) => {
 
     // Clean identifiers (remove spaces, etc.)
     const cleanId = identifier.trim();
+    const lowerCleanId = cleanId.toLowerCase();
     const cleanBookingId = bookingId.trim().toUpperCase();
 
-    // Find all purchases that match the identifier (phone OR NIC)
-    // We also populate 'user' to check their profile if guestInfo is empty
+    // Find all purchases that match the identifier (phone OR NIC OR email)
+    // Using $regex for email to catch case differences if any
     const purchases = await TicketPurchase.find({
       $or: [
         { 'guestInfo.phone': cleanId },
         { 'guestInfo.nicOrPassport': cleanId },
-        { 'guestInfo.email': cleanId }
+        { 'guestInfo.email': { $regex: new RegExp(`^${lowerCleanId}$`, 'i') } }
       ]
     }).populate('eventId').populate('user');
 
@@ -294,7 +295,7 @@ const findPurchase = async (req, res) => {
         $or: [
           { phone: cleanId },
           { nicOrPassport: cleanId },
-          { email: cleanId }
+          { email: lowerCleanId }
         ]
       });
 

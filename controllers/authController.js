@@ -17,7 +17,8 @@ const setTokenCookie = (res, token) => {
 
 const signUp = async (req, res) => {
   try {
-    const { name, email, password } = req.body;
+    let { name, email, password } = req.body;
+    email = email.toLowerCase().trim();
     
     // Sanitize user name
     const sanitizedName = sanitizeInput(name);
@@ -63,7 +64,8 @@ const signUp = async (req, res) => {
 
 const signIn = async (req, res) => {
   try {
-    const { email, password } = req.body;
+    let { email, password } = req.body;
+    email = email.toLowerCase().trim();
 
     // Check if user exists
     const user = await User.findOne({ email });
@@ -99,7 +101,8 @@ const signIn = async (req, res) => {
 
 const googleLogin = async (req, res) => {
   try {
-    const { email, name } = req.body;
+    let { email, name } = req.body;
+    email = email.toLowerCase().trim();
     
     // Sanitize user name from Google
     const sanitizedName = sanitizeInput(name);
