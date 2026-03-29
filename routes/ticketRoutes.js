@@ -1,16 +1,17 @@
 const express = require('express');
 const router = express.Router();
 const ticketController = require('../controllers/ticketController');
+const { protect, admin } = require('../middleware/auth');
 
 // Routes
 router.get('/event/:eventId', ticketController.getEventTickets);
-router.get('/user/:userId', ticketController.getUserTickets);
-router.post('/', ticketController.createTicket);
-router.put('/:id', ticketController.updateTicket);
-router.delete('/:id', ticketController.deleteTicket);
-router.post('/buy', ticketController.buyTickets);
-router.post('/test-email', ticketController.testEmail);
+router.get('/user/:userId', protect, ticketController.getUserTickets);
+router.post('/', protect, admin, ticketController.createTicket);
+router.put('/:id', protect, admin, ticketController.updateTicket);
+router.delete('/:id', protect, admin, ticketController.deleteTicket);
+router.post('/buy', protect, ticketController.buyTickets);
+router.post('/test-email', protect, admin, ticketController.testEmail);
 
-router.post('/find', ticketController.findPurchase);
+router.post('/find', ticketController.findPurchase); // Keep public for guest find feature
 
 module.exports = router;

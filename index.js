@@ -9,8 +9,17 @@ const ticketRoutes = require('./routes/ticketRoutes');
 const commentRoutes = require('./routes/commentRoutes');
 
 const app = express();
+const rateLimit = require('express-rate-limit');
+
+// Rate limiting for all API routes (100 requests per 15 minutes)
+const globalLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, 
+  max: 100, 
+  message: { message: 'Too many requests, please try again after 15 minutes' },
+});
 
 // Middleware
+app.use('/api', globalLimiter);
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ limit: '50mb', extended: true }));
 app.use(cookieParser());
