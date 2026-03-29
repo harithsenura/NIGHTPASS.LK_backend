@@ -51,6 +51,7 @@ const signUp = async (req, res) => {
     setTokenCookie(res, token);
 
     res.status(201).json({
+      token, // Include token in response body
       user: {
         id: newUser._id,
         name: newUser.name,
@@ -88,6 +89,7 @@ const signIn = async (req, res) => {
     setTokenCookie(res, token);
 
     res.status(200).json({
+      token, // Include token in response body
       user: {
         id: user._id,
         name: user.name,
@@ -134,6 +136,7 @@ const googleLogin = async (req, res) => {
     setTokenCookie(res, token);
 
     res.status(200).json({
+      token, // Include token in response body
       user: {
         id: user._id,
         name: user.name,
