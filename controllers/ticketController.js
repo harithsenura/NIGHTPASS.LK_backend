@@ -210,9 +210,18 @@ const getUserTickets = async (req, res) => {
     // 2. Also find tickets where guestInfo.email matches the logged-in user's email
     // This allows guests who later register to see their old tickets.
     
-    const user = await User.findById(userId);
+    const mongoose = require('mongoose');
+    let user = null;
+    
+    // Validate if userId is a standard MongoDB ObjectId
+    if (mongoose.Types.ObjectId.isValid(userId)) {
+      user = await User.findById(userId);
+    }
+    
     if (!user) {
-      return res.status(404).json({ message: 'User not found' });
+      // If no valid user ID, try one more thing: search for user by ID string if it's stored differently
+      // or just return 404 if truly not found.
+      return res.status(404).json({ message: 'User not found or invalid session' });
     }
 
     // Escape special regex characters in the email string

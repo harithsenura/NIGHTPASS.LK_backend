@@ -8,9 +8,9 @@ const setTokenCookie = (res, token) => {
   const cookieOptions = {
     httpOnly: true,
     expires: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // 7 days
-    secure: process.env.NODE_ENV === 'production',
-    sameSite: process.env.NODE_ENV === 'production' ? 'strict' : 'lax', // Use 'lax' for development to avoid issues with localhost
-    domain: process.env.NODE_ENV === 'production' ? '.nightpass.lk' : undefined,
+    secure: true, // Always true to support sameSite: 'none'
+    sameSite: 'none', // Required for cross-site requests (e.g. Railway to nightpass.lk)
+    // Removed domain restriction to allow browser to handle it based on origin
   };
   res.cookie('token', token, cookieOptions);
 };
