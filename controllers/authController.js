@@ -2,6 +2,17 @@ const User = require('../models/User');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 
+// Helper function to set JWT in cookie
+const setTokenCookie = (res, token) => {
+  const cookieOptions = {
+    httpOnly: true,
+    expires: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // 7 days
+    secure: process.env.NODE_ENV === 'production',
+    sameSite: process.env.NODE_ENV === 'production' ? 'strict' : 'lax', // Use 'lax' for development to avoid issues with localhost
+  };
+  res.cookie('token', token, cookieOptions);
+};
+
 const signUp = async (req, res) => {
   try {
     const { name, email, password } = req.body;
@@ -30,8 +41,10 @@ const signUp = async (req, res) => {
       expiresIn: '7d',
     });
 
+    // Set cookie
+    setTokenCookie(res, token);
+
     res.status(201).json({
-      token,
       user: {
         id: newUser._id,
         name: newUser.name,
@@ -64,8 +77,10 @@ const signIn = async (req, res) => {
       expiresIn: '7d',
     });
 
+    // Set cookie
+    setTokenCookie(res, token);
+
     res.status(200).json({
-      token,
       user: {
         id: user._id,
         name: user.name,
@@ -86,7 +101,6 @@ const googleLogin = async (req, res) => {
 
     if (!user) {
       // Create new user if not exists
-      // For Google users, we'll set a random password as it's required in the schema
       const randomPassword = Math.random().toString(36).slice(-10);
       const salt = await bcrypt.genSalt(10);
       const hashedPassword = await bcrypt.hash(randomPassword, salt);
@@ -105,8 +119,10 @@ const googleLogin = async (req, res) => {
       expiresIn: '7d',
     });
 
+    // Set cookie
+    setTokenCookie(res, token);
+
     res.status(200).json({
-      token,
       user: {
         id: user._id,
         name: user.name,
@@ -118,4 +134,12 @@ const googleLogin = async (req, res) => {
   }
 };
 
-module.exports = { signUp, signIn, googleLogin };
+const logout = async (req, res) => {
+  res.cookie('token', 'loggedout', {
+    expires: new Date(Date.now() + 10 * 1000), // 10 seconds
+    httpOnly: true,
+  });
+  res.status(200).json({ status: 'success' });
+};
+
+module.exports = { signUp, signIn, googleLogin, logout };
