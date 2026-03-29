@@ -205,7 +205,22 @@ const buyTickets = async (req, res) => {
 const getUserTickets = async (req, res) => {
   try {
     const { userId } = req.params;
-    const purchases = await TicketPurchase.find({ user: userId })
+    
+    // 1. First, find all tickets where user matches the ID
+    // 2. Also find tickets where guestInfo.email matches the logged-in user's email
+    // This allows guests who later register to see their old tickets.
+    
+    const user = await User.findById(userId);
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+
+    const purchases = await TicketPurchase.find({
+      $or: [
+        { user: userId },
+        { "guestInfo.email": user.email }
+      ]
+    })
       .populate('eventId')
       .sort({ createdAt: -1 });
     
