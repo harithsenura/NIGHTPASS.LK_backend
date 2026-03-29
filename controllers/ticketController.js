@@ -347,8 +347,11 @@ const initiatePayHerePayment = async (req, res) => {
   try {
     const { eventId, user, guestInfo, tickets, totalAmount } = req.body;
 
+    console.log(`[PAYHERE] Initiating payment for Event: ${eventId}, Amount: ${totalAmount}`);
+
     // 1. Basic Validation
     if (!tickets || tickets.length === 0) {
+      console.error("[PAYHERE] Initiation failed: No tickets selected");
       return res.status(400).json({ message: 'No tickets selected' });
     }
 
@@ -356,9 +359,11 @@ const initiatePayHerePayment = async (req, res) => {
     for (const item of tickets) {
       const dbTicket = await Ticket.findById(item.ticketId);
       if (!dbTicket) {
+        console.error(`[PAYHERE] Initiation failed: Ticket ${item.name} not found`);
         return res.status(404).json({ message: `Ticket ${item.name} not found` });
       }
       if (dbTicket.quantity - dbTicket.sold < item.qty) {
+        console.error(`[PAYHERE] Initiation failed: Not enough availability for ${item.name}`);
         return res.status(400).json({ message: `Not enough availability for ${item.name}` });
       }
     }
@@ -369,12 +374,20 @@ const initiatePayHerePayment = async (req, res) => {
     // 4. PayHere Hash Generation
     const merchantId = process.env.PAYHERE_MERCHANT_ID;
     const merchantSecret = process.env.PAYHERE_MERCHANT_SECRET;
+
+    if (!merchantId || !merchantSecret) {
+      console.error("[PAYHERE] Initiation failed: Missing Merchant ID or Secret in .env");
+      return res.status(500).json({ message: 'Server configuration error' });
+    }
+
     const currency = "LKR";
     const amountFormatted = parseFloat(totalAmount).toFixed(2);
 
     const hashedSecret = crypto.createHash('md5').update(merchantSecret).digest('hex').toUpperCase();
     const hashStr = merchantId + orderId + amountFormatted + currency + hashedSecret;
     const hash = crypto.createHash('md5').update(hashStr).digest('hex').toUpperCase();
+
+    console.log(`[PAYHERE] Generated Hash for Order: ${orderId}, Amount: ${amountFormatted}`);
 
     // 5. Prepare response for frontend
     const payhereData = {
