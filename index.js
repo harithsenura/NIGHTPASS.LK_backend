@@ -51,7 +51,9 @@ const allowedOrigins = [
   'http://localhost:3000',
   'http://localhost:3001',
   'http://nightpass.lk',
-  'https://nightpass.lk'
+  'https://nightpass.lk',
+  'http://www.nightpass.lk',
+  'https://www.nightpass.lk'
 ];
 
 app.use(cors({

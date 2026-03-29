@@ -10,6 +10,7 @@ const setTokenCookie = (res, token) => {
     expires: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // 7 days
     secure: process.env.NODE_ENV === 'production',
     sameSite: process.env.NODE_ENV === 'production' ? 'strict' : 'lax', // Use 'lax' for development to avoid issues with localhost
+    domain: process.env.NODE_ENV === 'production' ? '.nightpass.lk' : undefined,
   };
   res.cookie('token', token, cookieOptions);
 };
