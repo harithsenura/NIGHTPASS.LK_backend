@@ -3,6 +3,7 @@ const TicketPurchase = require('../models/TicketPurchase');
 const Event = require('../models/Event');
 const User = require('../models/User');
 const sendEmail = require('../utils/sendEmail');
+const { sanitizeInput } = require('../utils/sanitize');
 
 // Get all tickets for a specific event
 const getEventTickets = async (req, res) => {
@@ -28,10 +29,10 @@ const createTicket = async (req, res) => {
 
     const newTicket = new Ticket({
       eventId,
-      name,
+      name: sanitizeInput(name),
       price,
       quantity,
-      customStatus
+      customStatus: sanitizeInput(customStatus)
     });
 
     await newTicket.save();
@@ -49,7 +50,12 @@ const updateTicket = async (req, res) => {
     
     const ticket = await Ticket.findByIdAndUpdate(
       id,
-      { $set: { name, price, quantity, customStatus } },
+      { $set: { 
+        name: sanitizeInput(name), 
+        price, 
+        quantity, 
+        customStatus: sanitizeInput(customStatus) 
+      } },
       { new: true, runValidators: true }
     );
 
@@ -135,10 +141,10 @@ const buyTickets = async (req, res) => {
       eventId,
       user: user || null,
       guestInfo: {
-        name: guestInfo?.name || "Guest",
-        email: guestInfo?.email || "",
-        phone: guestInfo?.phone || "",
-        nicOrPassport: guestInfo?.nic || guestInfo?.nicOrPassport || ""
+        name: sanitizeInput(guestInfo?.name || "Guest"),
+        email: sanitizeInput(guestInfo?.email || ""),
+        phone: sanitizeInput(guestInfo?.phone || ""),
+        nicOrPassport: sanitizeInput(guestInfo?.nic || guestInfo?.nicOrPassport || "")
       },
       tickets: processedTickets,
       totalAmount

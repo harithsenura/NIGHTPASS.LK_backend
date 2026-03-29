@@ -1,6 +1,7 @@
 const User = require('../models/User');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
+const { sanitizeInput } = require('../utils/sanitize');
 
 // Helper function to set JWT in cookie
 const setTokenCookie = (res, token) => {
@@ -16,6 +17,9 @@ const setTokenCookie = (res, token) => {
 const signUp = async (req, res) => {
   try {
     const { name, email, password } = req.body;
+    
+    // Sanitize user name
+    const sanitizedName = sanitizeInput(name);
 
     // Check if user already exists
     const existingUser = await User.findOne({ email });
@@ -29,7 +33,7 @@ const signUp = async (req, res) => {
 
     // Create new user
     const newUser = new User({
-      name,
+      name: sanitizedName,
       email,
       password: hashedPassword,
     });
@@ -95,6 +99,9 @@ const signIn = async (req, res) => {
 const googleLogin = async (req, res) => {
   try {
     const { email, name } = req.body;
+    
+    // Sanitize user name from Google
+    const sanitizedName = sanitizeInput(name);
 
     // Check if user exists
     let user = await User.findOne({ email }).lean();
@@ -106,7 +113,7 @@ const googleLogin = async (req, res) => {
       const hashedPassword = await bcrypt.hash(randomPassword, salt);
 
       user = new User({
-        name,
+        name: sanitizedName,
         email,
         password: hashedPassword,
       });

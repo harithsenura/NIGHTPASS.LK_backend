@@ -1,9 +1,19 @@
 const Comment = require('../models/Comment');
+const { sanitizeInput } = require('../utils/sanitize');
 
 exports.createComment = async (req, res) => {
   try {
     const { name, email, comment } = req.body;
-    const newComment = new Comment({ name, email, comment });
+    
+    const sanitizedName = sanitizeInput(name);
+    const sanitizedComment = sanitizeInput(comment);
+    
+    const newComment = new Comment({ 
+      name: sanitizedName, 
+      email, 
+      comment: sanitizedComment 
+    });
+    
     await newComment.save();
     res.status(201).json({ message: 'Comment submitted successfully', comment: newComment });
   } catch (error) {
