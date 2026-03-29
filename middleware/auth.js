@@ -31,4 +31,25 @@ const admin = (req, res, next) => {
   }
 };
 
-module.exports = { protect, admin };
+const optionalProtect = async (req, res, next) => {
+  let token;
+
+  if (req.cookies && req.cookies.token) {
+    token = req.cookies.token;
+  }
+
+  if (!token) {
+    return next();
+  }
+
+  try {
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    req.user = await User.findById(decoded.id).select('-password');
+    next();
+  } catch (error) {
+    // If token is invalid, we just treat them as a guest instead of erroring out
+    next();
+  }
+};
+
+module.exports = { protect, admin, optionalProtect };

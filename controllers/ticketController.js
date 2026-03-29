@@ -139,7 +139,7 @@ const buyTickets = async (req, res) => {
     // Create purchase record
     const purchase = new TicketPurchase({
       eventId,
-      user: user || null,
+      user: req.user ? req.user._id : (user || null),
       guestInfo: {
         name: sanitizeInput(guestInfo?.name || "Guest"),
         email: sanitizeInput(guestInfo?.email || ""),
