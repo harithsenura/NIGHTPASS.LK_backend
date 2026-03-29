@@ -215,10 +215,13 @@ const getUserTickets = async (req, res) => {
       return res.status(404).json({ message: 'User not found' });
     }
 
+    // Escape special regex characters in the email string
+    const escapedEmail = user.email.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    
     const purchases = await TicketPurchase.find({
       $or: [
         { user: userId },
-        { "guestInfo.email": { $regex: new RegExp(`^${user.email}$`, 'i') } }
+        { "guestInfo.email": { $regex: new RegExp(`^${escapedEmail}$`, 'i') } }
       ]
     })
       .populate('eventId')
@@ -276,13 +279,16 @@ const findPurchase = async (req, res) => {
     const lowerCleanId = cleanId.toLowerCase();
     const cleanBookingId = bookingId.trim().toUpperCase();
 
+    // Escape special regex characters in the email string
+    const escapedId = lowerCleanId.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
     // Find all purchases that match the identifier (phone OR NIC OR email)
     // Using $regex for email to catch case differences if any
     const purchases = await TicketPurchase.find({
       $or: [
         { 'guestInfo.phone': cleanId },
         { 'guestInfo.nicOrPassport': cleanId },
-        { 'guestInfo.email': { $regex: new RegExp(`^${lowerCleanId}$`, 'i') } }
+        { 'guestInfo.email': { $regex: new RegExp(`^${escapedId}$`, 'i') } }
       ]
     }).populate('eventId').populate('user');
 
