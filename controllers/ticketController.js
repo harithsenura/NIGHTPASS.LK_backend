@@ -444,7 +444,7 @@ const initiatePayHerePayment = async (req, res) => {
       merchant_id: merchantId,
       return_url: `${process.env.NEXTAUTH_URL}/checkout?status=success`,
       cancel_url: `${process.env.NEXTAUTH_URL}/checkout?status=cancelled`,
-      notify_url: `${process.env.NEXTAUTH_URL}/api/tickets/payhere-notify`, 
+      notify_url: "https://nightpasslkbackend-production.up.railway.app/api/tickets/payhere-notify", 
       order_id: orderId,
       items: tickets.map(t => t.name).join(", "),
       amount: amountFormatted,
@@ -497,7 +497,7 @@ const payhereNotify = async (req, res) => {
     console.log(`[PAYHERE-WEBHOOK] Hash verified successfully for ${order_id}`);
 
     // status_code: 2 = Success
-    if (status_code === "2") {
+    if (status_code == 2) {
       console.log(`[PAYHERE] Payment SUCCESS for Order: ${order_id}`);
 
       // Fetch the pending purchase
