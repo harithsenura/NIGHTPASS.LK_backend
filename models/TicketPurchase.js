@@ -38,4 +38,9 @@ const ticketPurchaseSchema = new mongoose.Schema({
   }
 }, { timestamps: true });
 
+// ⚡ Add Indexes for High-Performance Performance
+// These make the "first-time" dashboard load nearly instant
+ticketPurchaseSchema.index({ user: 1 });
+ticketPurchaseSchema.index({ 'guestInfo.email': 1 });
+
 module.exports = mongoose.model('TicketPurchase', ticketPurchaseSchema);

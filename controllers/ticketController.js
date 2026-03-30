@@ -238,8 +238,12 @@ const getUserTickets = async (req, res) => {
         { "guestInfo.email": { $regex: new RegExp(`^${escapedEmail}$`, 'i') } }
       ]
     })
-      .populate('eventId')
-      .sort({ createdAt: -1 });
+      .populate({
+        path: 'eventId',
+        select: 'title date image venue location status' // ⚡ Only select fields needed for display
+      })
+      .sort({ createdAt: -1 })
+      .lean(); // ⚡ Lean queries are much faster than full Mongoose documents
     
     res.status(200).json(purchases);
   } catch (error) {
