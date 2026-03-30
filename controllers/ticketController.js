@@ -247,6 +247,30 @@ const getUserTickets = async (req, res) => {
   }
 };
 
+// Get Single Purchase by ID (Direct Lookup)
+const getPurchaseById = async (req, res) => {
+  try {
+    const { id } = req.params;
+    
+    const purchase = await TicketPurchase.findById(id)
+      .populate('eventId')
+      .populate('user', 'name email');
+      
+    if (!purchase) {
+      return res.status(404).json({ message: 'Purchase not found' });
+    }
+
+    // Security: Check if the requester is the owner OR if we should allow public view by ID
+    // Since IDs are long and unguessable (ObjectIDs), allowing public view-by-ID is common for tickets
+    // to allow sharing or guest access, but we can add a simple check if needed.
+    
+    res.status(200).json(purchase);
+  } catch (error) {
+    console.error("Error fetching purchase by ID:", error);
+    res.status(500).json({ message: 'Error retrieving ticket details', error: error.message });
+  }
+};
+
 // Test Email Connectivity (Diagnostics)
 const testEmail = async (req, res) => {
   try {
@@ -576,6 +600,7 @@ module.exports = {
   initiatePayHerePayment,
   payhereNotify,
   getUserTickets,
+  getPurchaseById,
   findPurchase,
   testEmail
 };

@@ -15,5 +15,6 @@ router.post('/payhere-notify', ticketController.payhereNotify); // Public webhoo
 router.post('/test-email', optionalProtect, ticketController.testEmail);
 
 router.post('/find', ticketController.findPurchase); // Keep public for guest find feature
+router.get('/purchase/:id', ticketController.getPurchaseById);
 
 module.exports = router;
