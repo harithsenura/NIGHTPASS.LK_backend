@@ -12,7 +12,7 @@ router.delete('/:id', protect, admin, ticketController.deleteTicket);
 router.post('/buy', optionalProtect, ticketController.buyTickets);
 router.post('/initiate-payhere', optionalProtect, ticketController.initiatePayHerePayment);
 router.post('/payhere-notify', ticketController.payhereNotify); // Public webhook
-router.post('/test-email', protect, ticketController.testEmail);
+router.post('/test-email', optionalProtect, ticketController.testEmail);
 
 router.post('/find', ticketController.findPurchase); // Keep public for guest find feature
 
