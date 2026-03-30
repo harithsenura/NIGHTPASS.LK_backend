@@ -397,13 +397,54 @@ const initiatePayHerePayment = async (req, res) => {
 
     console.log(`[PAYHERE] Generated Hash for Order: ${orderId}, Amount: ${amountFormatted}`);
 
-    // 5. Prepare response for frontend
+    // 5. Pre-generate ticket IDs and create a 'pending' purchase record
+    const processedTickets = [];
+    const eventIdShort = eventId.toString().slice(-4).toUpperCase();
+    
+    for (const item of tickets) {
+      const dbTicket = await Ticket.findById(item.ticketId);
+      const ticketNameShort = dbTicket.name.slice(0, 3).toUpperCase();
+      const ticketIds = [];
+      
+      for (let i = 0; i < item.qty; i++) {
+        const randomSuffix = Math.random().toString(36).slice(2, 8).toUpperCase();
+        const uniqueId = `NP-${eventIdShort}-${ticketNameShort}-${randomSuffix}`;
+        ticketIds.push(uniqueId);
+      }
+
+      processedTickets.push({
+        ticketId: dbTicket._id,
+        name: dbTicket.name,
+        price: dbTicket.price,
+        qty: item.qty,
+        ticketIds: ticketIds
+      });
+    }
+
+    const purchase = new TicketPurchase({
+      eventId,
+      user: user || null,
+      guestInfo: {
+        name: sanitizeInput(guestInfo?.name || "Guest"),
+        email: sanitizeInput(guestInfo?.email?.toLowerCase().trim() || ""),
+        phone: sanitizeInput(guestInfo?.phone || ""),
+        nicOrPassport: sanitizeInput(guestInfo?.nic || guestInfo?.nicOrPassport || ""),
+        address: sanitizeInput(guestInfo?.address || "N/A")
+      },
+      tickets: processedTickets,
+      totalAmount: parseFloat(totalAmount),
+      paymentStatus: 'pending'
+    });
+
+    await purchase.save();
+
+    // 6. Prepare response for frontend
     const payhereData = {
       sandbox: process.env.PAYHERE_SANDBOX === 'true',
       merchant_id: merchantId,
       return_url: `${process.env.NEXTAUTH_URL}/checkout?status=success`,
       cancel_url: `${process.env.NEXTAUTH_URL}/checkout?status=cancelled`,
-      notify_url: `${process.env.NEXTAUTH_URL}/api/tickets/payhere-notify`, // Ensure public access
+      notify_url: `${process.env.NEXTAUTH_URL}/api/tickets/payhere-notify`, 
       order_id: orderId,
       items: tickets.map(t => t.name).join(", "),
       amount: amountFormatted,
@@ -414,11 +455,9 @@ const initiatePayHerePayment = async (req, res) => {
       email: guestInfo?.email || "",
       phone: guestInfo?.phone || "",
       address: guestInfo?.address || "N/A",
-      city: "Colombo", // Default needed for PayHere SDK
+      city: "Colombo", 
       country: "Sri Lanka",
-      // Metadata for the notification step (passed as custom variables if needed, 
-      // but we'll use order_id as key)
-      custom_1: JSON.stringify({ eventId, userId: user, tickets, guestInfo })
+      custom_1: purchase._id.toString() // Only pass the ID to avoid truncation
     };
 
     res.status(200).json(payhereData);
@@ -457,78 +496,51 @@ const payhereNotify = async (req, res) => {
     if (status_code === "2") {
       console.log(`[PAYHERE] Payment SUCCESS for Order: ${order_id}`);
 
-      // Extract metadata
-      const { eventId, userId, tickets, guestInfo } = JSON.parse(custom_1);
-
-      // --- SIMILAR TO buyTickets logic ---
+      // Fetch the pending purchase
+      const purchaseId = custom_1;
+      const purchase = await TicketPurchase.findById(purchaseId);
       
-      const dbTickets = [];
-      for (const item of tickets) {
+      if (!purchase) {
+        console.error(`[PAYHERE] Critical error: Purchase ${purchaseId} not found!`);
+        return res.status(404).send("Purchase not found");
+      }
+
+      if (purchase.paymentStatus === 'paid') {
+        console.log(`[PAYHERE] Duplicate notification for Purchase: ${purchaseId}. Skipping.`);
+        return res.status(200).send("OK");
+      }
+
+      // 1. Update ticket availability (Sold counts)
+      for (const item of purchase.tickets) {
         const dbTicket = await Ticket.findById(item.ticketId);
         if (dbTicket) {
-          dbTickets.push({ dbTicket: dbTicket, qtyToBuy: item.qty });
+          dbTicket.sold += item.qty;
+          await dbTicket.save();
         }
       }
 
-      const processedTickets = [];
-      const eventIdShort = eventId.toString().slice(-4).toUpperCase();
-      
-      for (const { dbTicket, qtyToBuy } of dbTickets) {
-        dbTicket.sold += qtyToBuy;
-        await dbTicket.save();
-
-        const ticketNameShort = dbTicket.name.slice(0, 3).toUpperCase();
-        const ticketIds = [];
-        for (let i = 0; i < qtyToBuy; i++) {
-          const randomSuffix = Math.random().toString(36).slice(2, 8).toUpperCase();
-          const uniqueId = `NP-${eventIdShort}-${ticketNameShort}-${randomSuffix}`;
-          ticketIds.push(uniqueId);
-        }
-
-        processedTickets.push({
-          ticketId: dbTicket._id,
-          name: dbTicket.name,
-          price: dbTicket.price,
-          qty: qtyToBuy,
-          ticketIds: ticketIds
-        });
-      }
-
-      // Create purchase record
-      const purchase = new TicketPurchase({
-        eventId,
-        user: userId || null,
-        guestInfo: {
-          name: sanitizeInput(guestInfo?.name || "Guest"),
-          email: sanitizeInput(guestInfo?.email?.toLowerCase().trim() || ""),
-          phone: sanitizeInput(guestInfo?.phone || ""),
-          nicOrPassport: sanitizeInput(guestInfo?.nic || guestInfo?.nicOrPassport || "")
-        },
-        tickets: processedTickets,
-        totalAmount: parseFloat(payhere_amount),
-        paymentStatus: 'paid',
-        payhereOrderId: order_id
-      });
-
+      // 2. Update purchase record
+      purchase.paymentStatus = 'paid';
+      purchase.payhereOrderId = order_id;
       await purchase.save();
 
       // Trigger Email
       try {
-        const eventData = await Event.findById(eventId);
+        const eventData = await Event.findById(purchase.eventId);
         if (eventData) {
           await sendEmail({
-            to: (guestInfo?.email || "").toLowerCase(),
+            to: (purchase.guestInfo?.email || "").toLowerCase(),
             data: {
-              customerName: guestInfo?.name || "Customer",
+              customerName: purchase.guestInfo?.name || "Customer",
               eventName: eventData.title,
               eventDate: eventData.date,
               eventVenue: eventData.venue || eventData.location,
               eventImage: eventData.image,
               purchaseId: purchase._id.toString(),
-              tickets: processedTickets,
-              totalAmount: parseFloat(payhere_amount),
+              tickets: purchase.tickets,
+              totalAmount: purchase.totalAmount,
               paymentMethod: req.body.method || "PayHere Card Payment",
-              billingAddress: guestInfo?.address || "N/A"
+              billingAddress: purchase.guestInfo?.address || "N/A"
             }
           });
         }
