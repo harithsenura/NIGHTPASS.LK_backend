@@ -480,6 +480,8 @@ const payhereNotify = async (req, res) => {
       custom_1
     } = req.body;
 
+    console.log(`[PAYHERE-WEBHOOK] Received notification for Order: ${order_id}, Status: ${status_code}, custom_1: ${custom_1}`);
+
     const merchantSecret = process.env.PAYHERE_MERCHANT_SECRET;
     const hashedSecret = crypto.createHash('md5').update(merchantSecret).digest('hex').toUpperCase();
 
@@ -488,9 +490,11 @@ const payhereNotify = async (req, res) => {
     const localHash = crypto.createHash('md5').update(localHashStr).digest('hex').toUpperCase();
 
     if (localHash !== md5sig) {
-      console.error("[PAYHERE] Hash mismatch! Potential tampering detected.");
+      console.error(`[PAYHERE-WEBHOOK] Hash mismatch! Local: ${localHash}, Received: ${md5sig}`);
       return res.status(400).send("Hash mismatch");
     }
+
+    console.log(`[PAYHERE-WEBHOOK] Hash verified successfully for ${order_id}`);
 
     // status_code: 2 = Success
     if (status_code === "2") {
@@ -498,10 +502,11 @@ const payhereNotify = async (req, res) => {
 
       // Fetch the pending purchase
       const purchaseId = custom_1;
+      console.log(`[PAYHERE-WEBHOOK] Searching for Pending Purchase: ${purchaseId}`);
       const purchase = await TicketPurchase.findById(purchaseId);
       
       if (!purchase) {
-        console.error(`[PAYHERE] Critical error: Purchase ${purchaseId} not found!`);
+        console.error(`[PAYHERE-WEBHOOK] Critical failure: Purchase ID ${purchaseId} not found in DB!`);
         return res.status(404).send("Purchase not found");
       }
 
@@ -523,6 +528,7 @@ const payhereNotify = async (req, res) => {
       purchase.paymentStatus = 'paid';
       purchase.payhereOrderId = order_id;
       await purchase.save();
+      console.log(`[PAYHERE-WEBHOOK] Purchase ${purchaseId} updated to 'paid'. Sending email...`);
 
       // Trigger Email
       try {
@@ -543,9 +549,12 @@ const payhereNotify = async (req, res) => {
               billingAddress: purchase.guestInfo?.address || "N/A"
             }
           });
+          console.log(`[PAYHERE-WEBHOOK] Resend API call result: ${JSON.stringify(emailResult)}`);
+        } else {
+           console.warn(`[PAYHERE-WEBHOOK] Skipping email: Event Data not found for ID: ${purchase.eventId}`);
         }
       } catch (emailErr) {
-        console.error("Email error after payment:", emailErr);
+        console.error(`[PAYHERE-WEBHOOK] Internal error during email processing: ${emailErr.message}`);
       }
     } else {
       console.log(`[PAYHERE] Payment status: ${status_code} for order: ${order_id}`);
