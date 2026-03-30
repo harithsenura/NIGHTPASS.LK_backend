@@ -534,7 +534,7 @@ const payhereNotify = async (req, res) => {
       try {
         const eventData = await Event.findById(purchase.eventId);
         if (eventData) {
-          await sendEmail({
+          const emailResult = await sendEmail({
             to: (purchase.guestInfo?.email || "").toLowerCase(),
             data: {
               customerName: purchase.guestInfo?.name || "Customer",
