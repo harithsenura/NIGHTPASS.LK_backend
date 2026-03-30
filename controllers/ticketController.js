@@ -179,9 +179,13 @@ const buyTickets = async (req, res) => {
               customerName,
               eventName: eventData.title,
               eventDate: eventData.date,
+              eventVenue: eventData.venue || eventData.location,
+              eventImage: eventData.image,
               purchaseId: purchase._id.toString(),
               tickets: processedTickets,
-              totalAmount
+              totalAmount,
+              paymentMethod: "Manual/Login Purchase",
+              billingAddress: guestInfo?.address || "N/A"
             }
           });
           
@@ -259,9 +263,13 @@ const testEmail = async (req, res) => {
         customerName: "Diagnostic User",
         eventName: "SYSTEM TEST",
         eventDate: new Date().toLocaleString(),
+        eventVenue: "Digital Arena",
+        eventImage: "https://nightpass.lk/og-image.png",
         purchaseId: "TEST-12345",
         tickets: [{ name: "Standard Test", price: 0, qty: 1 }],
-        totalAmount: 0
+        totalAmount: 0,
+        paymentMethod: "Test Payment",
+        billingAddress: "No. 01, Colombo, Sri Lanka"
       }
     });
 
@@ -514,9 +522,13 @@ const payhereNotify = async (req, res) => {
               customerName: guestInfo?.name || "Customer",
               eventName: eventData.title,
               eventDate: eventData.date,
+              eventVenue: eventData.venue || eventData.location,
+              eventImage: eventData.image,
               purchaseId: purchase._id.toString(),
               tickets: processedTickets,
-              totalAmount: parseFloat(payhere_amount)
+              totalAmount: parseFloat(payhere_amount),
+              paymentMethod: req.body.method || "PayHere Card Payment",
+              billingAddress: guestInfo?.address || "N/A"
             }
           });
         }
