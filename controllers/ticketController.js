@@ -484,7 +484,14 @@ const initiatePayHerePayment = async (req, res) => {
       custom_1: purchase._id.toString() // Only pass the ID to avoid truncation
     };
 
-    res.status(200).json(payhereData);
+    res.status(200).json({ 
+      payhereData, 
+      purchase: {
+        _id: purchase._id,
+        tickets: purchase.tickets
+      }
+    });
+
   } catch (error) {
     console.error("PayHere initiation error:", error);
     res.status(500).json({ message: 'Error initiating payment', error: error.message });
