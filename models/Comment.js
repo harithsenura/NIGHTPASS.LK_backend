@@ -9,6 +9,11 @@ const commentSchema = new mongoose.Schema({
     type: String,
     required: false,
   },
+  role: {
+    type: String,
+    enum: ['User', 'Organizer'],
+    default: 'User'
+  },
   comment: {
     type: String,
     required: true,

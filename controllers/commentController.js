@@ -3,7 +3,7 @@ const { sanitizeInput } = require('../utils/sanitize');
 
 exports.createComment = async (req, res) => {
   try {
-    const { name, email, comment } = req.body;
+    const { name, email, comment, role } = req.body;
     
     const sanitizedName = sanitizeInput(name);
     const sanitizedComment = sanitizeInput(comment);
@@ -11,6 +11,7 @@ exports.createComment = async (req, res) => {
     const newComment = new Comment({ 
       name: sanitizedName, 
       email, 
+      role: role || 'User',
       comment: sanitizedComment 
     });
     
