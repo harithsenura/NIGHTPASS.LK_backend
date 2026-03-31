@@ -88,67 +88,61 @@ const getAdminOverview = async (req, res) => {
     const totalEvents = await Event.countDocuments();
     const registeredUsers = await User.countDocuments();
     
-    // Aggregate for total revenue and tickets sold
-    const purchases = await TicketPurchase.find({ status: 'Completed' });
+    // Use Aggregation Pipeline for high performance
+    const stats = await TicketPurchase.aggregate([
+      { $match: { status: 'Completed' } },
+      {
+        $group: {
+          _id: "$eventId",
+          revenue: { $sum: "$totalAmount" },
+          ticketsSold: {
+            $sum: {
+              $reduce: {
+                input: "$tickets",
+                initialValue: 0,
+                in: { $add: ["$$value", "$$this.qty"] }
+              }
+            }
+          }
+        }
+      }
+    ]);
+
+    const eventStatsMap = {};
     let totalRevenue = 0;
     let totalTicketsSold = 0;
-    
-    const eventStatsMap = {}; // eventId -> { sold, revenue }
+    let maxSold = -1;
+    let topEventId = null;
 
-    purchases.forEach(p => {
-      totalRevenue += (p.totalAmount || 0);
+    stats.forEach(s => {
+      const id = s._id ? s._id.toString() : 'unknown';
+      eventStatsMap[id] = { sold: s.ticketsSold, revenue: s.revenue };
+      totalRevenue += s.revenue;
+      totalTicketsSold += s.ticketsSold;
       
-      let purchaseTickets = 0;
-      if (p.tickets && Array.isArray(p.tickets)) {
-        p.tickets.forEach(t => {
-          purchaseTickets += (t.qty || 0);
-        });
-      }
-      totalTicketsSold += purchaseTickets;
-      
-      if (p.eventId) {
-        const evtId = p.eventId.toString();
-        if (!eventStatsMap[evtId]) {
-          eventStatsMap[evtId] = { sold: 0, revenue: 0 };
-        }
-        eventStatsMap[evtId].sold += purchaseTickets;
-        eventStatsMap[evtId].revenue += (p.totalAmount || 0);
+      if (s.ticketsSold > maxSold) {
+        maxSold = s.ticketsSold;
+        topEventId = s._id;
       }
     });
 
-    // Find top event
-    let topEventId = null;
-    let maxSold = -1;
-    for (const [evtId, stats] of Object.entries(eventStatsMap)) {
-      if (stats.sold > maxSold) {
-        maxSold = stats.sold;
-        topEventId = evtId;
-      }
-    }
-    
     let topEventData = null;
     if (topEventId) {
       const topEventObj = await Event.findById(topEventId);
       if (topEventObj) {
-        topEventData = {
-          name: topEventObj.title,
-          sold: maxSold
-        };
+        topEventData = { name: topEventObj.title, sold: maxSold };
       }
     }
 
-    // Get all events to construct the events list
     const allEvents = await Event.find().sort({ createdAt: -1 });
     const eventsList = allEvents.map(evt => {
       const id = evt._id.toString();
       const st = eventStatsMap[id] || { sold: 0, revenue: 0 };
-      
-      let tot = 1000; // Default capacity
+      let tot = 1000;
       if (evt.capacity) {
-        let parsed = parseInt(evt.capacity.replace(/\D/g, ''));
+        const parsed = parseInt(evt.capacity.replace(/\D/g, ''));
         if (!isNaN(parsed) && parsed > 0) tot = parsed;
       }
-      
       return {
         _id: id,
         name: evt.title,
