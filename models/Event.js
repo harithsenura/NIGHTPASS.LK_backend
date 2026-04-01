@@ -71,7 +71,17 @@ const eventSchema = new mongoose.Schema({
   },
   trailerUrl: {
     type: String,
-  }
+  },
+  artists: [{
+    name: String,
+    genre: String,
+    image: String,
+    socials: {
+      facebook: String,
+      instagram: String,
+      tiktok: String,
+    },
+  }],
 }, { timestamps: true });
 
 module.exports = mongoose.model('Event', eventSchema);
