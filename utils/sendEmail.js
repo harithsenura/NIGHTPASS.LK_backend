@@ -22,86 +22,87 @@ const sendEmail = async ({ to, subject, data }) => {
         ids.forEach((uniqueId) => {
           const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${uniqueId}&bgcolor=ffffff`;
           
+          // Gmail and others strip base64 images, so we use a dark gradient if it's base64 to ensure it still looks good.
+          const isBase64 = data.eventImage && data.eventImage.startsWith('data:image/');
+          const bgAttr = (!isBase64 && data.eventImage) ? `background="${data.eventImage}"` : '';
+
           ticketsHtml += `
-            <!-- Ticket Card -->
-            <table width="100%" max-width="400" cellpadding="0" cellspacing="0" border="0" style="background-color: #0d0d14; border: 1px solid rgba(255,255,255,0.1); border-radius: 24px; overflow: hidden; margin-bottom: 30px; margin-left: auto; margin-right: auto; font-family: Arial, sans-serif; width: 100%; max-width: 400px; box-shadow: 0 20px 40px rgba(0,0,0,0.5);">
+            <!-- Premium Ticket Card Container -->
+            <table border="0" cellpadding="0" cellspacing="0" width="100%" style="max-width: 480px; margin: 0 auto 40px auto; background-color: #0F1014; border-radius: 24px; border: 1px solid #222532; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; overflow: hidden;">
+              <!-- TOP SECTION (Background) -->
               <tr>
-                <td height="250" background="${data.eventImage}" style="background-image: url('${data.eventImage}'); background-size: cover; background-position: center; vertical-align: top; overflow: hidden; position: relative;">
-                  <table width="100%" height="250" cellpadding="0" cellspacing="0" border="0" style="background: linear-gradient(to bottom, rgba(13,13,20,0.3) 0%, rgba(13,13,20,0.9) 100%);">
+                <td align="center" ${bgAttr} bgcolor="#1a1b26" style="background-size: cover; background-position: center; border-radius: 24px 24px 0 0;">
+                  <!-- Dark Overlay for readability -->
+                  <table border="0" cellpadding="0" cellspacing="0" width="100%" style="background-color: rgba(15, 16, 20, 0.45); padding: 24px;">
                     <tr>
-                      <td valign="top" style="padding: 20px;">
-                        <table width="100%" cellpadding="0" cellspacing="0" border="0">
-                          <tr>
-                            <td align="left">
-                              <div style="background-color: rgba(34, 197, 94, 0.2); border: 1px solid rgba(34, 197, 94, 0.4); padding: 6px 14px; border-radius: 50px; display: inline-block;">
-                                <span style="font-family: 'Courier New', monospace; font-size: 11px; font-weight: 900; color: #4ade80; letter-spacing: 2px; text-transform: uppercase;">✔ VALID PASS</span>
-                              </div>
-                            </td>
-                            <td align="right">
-                              <div style="background-color: rgba(0, 0, 0, 0.8); padding: 8px 16px; border-radius: 50px; display: inline-block;">
-                                <span style="font-family: 'Courier New', monospace; font-size: 13px; font-weight: 900; color: #ffffff;">LKR ${ticket.price.toLocaleString()}</span>
-                              </div>
-                            </td>
-                          </tr>
-                        </table>
+                      <td align="left" valign="top">
+                        <span style="display:inline-block; background-color: rgba(34, 197, 94, 0.15); border: 1px solid rgba(34, 197, 94, 0.3); color: #4ade80; font-family: monospace; font-size: 11px; font-weight: bold; letter-spacing: 1px; padding: 6px 12px; border-radius: 20px;">✓ VALID PASS</span>
+                      </td>
+                      <td align="right" valign="top">
+                         <span style="display:inline-block; background-color: rgba(0,0,0,0.6); color: #ffffff; font-family: monospace; font-size: 12px; font-weight: bold; padding: 6px 12px; border-radius: 20px; border: 1px solid rgba(255,255,255,0.1);">LKR ${ticket.price.toLocaleString()}</span>
                       </td>
                     </tr>
                     <tr>
-                      <td valign="bottom" style="padding: 20px;">
-                        <p style="margin: 0; font-family: 'Courier New', monospace; font-size: 11px; font-weight: 900; color: #2e6dff; letter-spacing: 4px; text-transform: uppercase;">TICKET TIER</p>
-                        <h4 style="margin: 5px 0 0 0; font-family: Arial, sans-serif; font-size: 28px; font-weight: 900; color: #ffffff; text-transform: uppercase; letter-spacing: -0.5px;">${ticket.name}</h4>
+                      <td colspan="2" style="padding-top: 120px;">
+                        <span style="color: #3b82f6; font-family: monospace; font-size: 12px; font-weight: bold; letter-spacing: 2px; text-transform: uppercase;">Ticket Tier</span><br/>
+                        <span style="color: #ffffff; font-size: 32px; font-weight: 900; text-transform: uppercase; margin-top: 4px; display:inline-block;">${ticket.name}</span>
                       </td>
                     </tr>
                   </table>
                 </td>
               </tr>
-            
-              <!-- Divider -->
+              
+              <!-- CUTOUT DIVIDER -->
               <tr>
-                <td style="border-top: 2px dashed rgba(255,255,255,0.15); height: 0;"></td>
+                <td style="padding: 0; background-color: #0F1014;">
+                  <table border="0" cellpadding="0" cellspacing="0" width="100%">
+                    <tr>
+                      <td width="20" style="background-color: #05050A; border-radius: 0 50% 50% 0; height: 40px; border-right: 1px solid #222532;"></td>
+                      <td align="center" style="border-top: 2px dashed #2a2e40; line-height:0; height:0;"></td>
+                      <td width="20" style="background-color: #05050A; border-radius: 50% 0 0 50%; height: 40px; border-left: 1px solid #222532;"></td>
+                    </tr>
+                  </table>
+                </td>
               </tr>
-            
-              <!-- Content Area -->
+
+              <!-- BOTTOM SECTION -->
               <tr>
-                <td style="padding: 30px;">
-                  <h2 style="margin: 0 0 25px 0; font-family: Arial, sans-serif; font-size: 24px; font-weight: 900; color: #ffffff; text-transform: uppercase; letter-spacing: 1px;">${data.eventName}</h2>
+                <td style="padding: 10px 30px 40px 30px; background-color: #0F1014; border-radius: 0 0 24px 24px;">
+                  <h2 style="margin: 0 0 24px 0; color: #ffffff; font-size: 26px; font-weight: 900; letter-spacing: 1px; text-transform: uppercase;">${data.eventName}</h2>
                   
-                  <table width="100%" cellpadding="0" cellspacing="0" border="0" style="margin-bottom: 25px;">
+                  <table border="0" cellpadding="0" cellspacing="0" width="100%" style="margin-bottom: 30px;">
                     <tr>
-                      <td style="padding-bottom: 15px;">
-                        <span style="font-family: 'Courier New', monospace; font-size: 11px; font-weight: 900; color: rgba(255,255,255,0.4); text-transform: uppercase; letter-spacing: 2px;">📅 DATE</span><br/>
-                        <div style="font-family: 'Courier New', monospace; font-size: 13px; font-weight: 900; color: #ffffff; text-transform: uppercase; margin-top: 6px;">${data.eventDate}</div>
-                      </td>
+                      <td width="30" valign="top"><span style="font-size:18px;">📅</span></td>
+                      <td><span style="color: #d1d5db; font-family: monospace; font-weight: bold; font-size: 13px; text-transform: uppercase; letter-spacing: 1px; line-height: 20px;">${data.eventDate}</span></td>
                     </tr>
+                    <tr><td colspan="2" height="12"></td></tr>
                     <tr>
-                      <td>
-                        <span style="font-family: 'Courier New', monospace; font-size: 11px; font-weight: 900; color: rgba(255,255,255,0.4); text-transform: uppercase; letter-spacing: 2px;">📍 LOCATION</span><br/>
-                        <div style="font-family: 'Courier New', monospace; font-size: 13px; font-weight: 900; color: #ffffff; text-transform: uppercase; margin-top: 6px;">${data.eventVenue || 'See details on web'}</div>
-                      </td>
+                      <td width="30" valign="top"><span style="font-size:18px;">📍</span></td>
+                      <td><span style="color: #d1d5db; font-family: monospace; font-weight: bold; font-size: 13px; text-transform: uppercase; letter-spacing: 1px; line-height: 20px;">${data.eventVenue || 'SEE DETAILS ON WEB'}</span></td>
                     </tr>
                   </table>
-            
-                  <div style="height: 1px; background-color: rgba(255,255,255,0.1); margin-bottom: 25px;"></div>
-            
-                  <table width="100%" cellpadding="0" cellspacing="0" border="0">
+
+                  <div style="height: 1px; background-color: #222532; margin-bottom: 24px;"></div>
+
+                  <table border="0" cellpadding="0" cellspacing="0" width="100%">
                     <tr>
-                      <td valign="bottom" style="padding-bottom: 5px;">
-                        <p style="margin: 0 0 8px 0; font-family: 'Courier New', monospace; font-size: 10px; font-weight: 900; color: rgba(255,255,255,0.4); text-transform: uppercase; letter-spacing: 3px;">UNIQUE PASS ID</p>
-                        <p style="margin: 0; font-family: 'Courier New', monospace; font-size: 14px; font-weight: 900; color: #ffffff; letter-spacing: 1px;">${uniqueId}</p>
-                        <div style="margin-top: 15px; background-color: rgba(46, 109, 255, 0.1); border: 1px solid rgba(46, 109, 255, 0.2); padding: 5px 10px; border-radius: 6px; display: inline-block;">
-                          <span style="font-size: 9px; color: #2e6dff; font-weight: 900; text-transform: uppercase; letter-spacing: 1px;">🛡 SECURE ENTRY GUARANTEED</span>
-                        </div>
+                      <td valign="bottom" align="left">
+                        <p style="margin: 0 0 8px 0; color: #6b7280; font-family: monospace; font-size: 11px; font-weight: bold; letter-spacing: 2px; text-transform: uppercase;">UNIQUE PASS ID</p>
+                        <p style="margin: 0 0 16px 0; color: #ffffff; font-family: monospace; font-size: 16px; font-weight: bold; letter-spacing: 1px;">${uniqueId}</p>
+                        
+                        <span style="display:inline-block; background-color: rgba(37, 99, 235, 0.1); border: 1px solid rgba(37, 99, 235, 0.3); color: #3b82f6; font-size: 10px; font-weight: bold; padding: 6px 10px; border-radius: 6px; letter-spacing: 0.5px; text-transform: uppercase;">🛡 SECURE ENTRY GUARANTEED</span>
                       </td>
-                      <td valign="bottom" align="right" width="80">
-                        <div style="background-color: #ffffff; padding: 6px; border-radius: 12px; display: inline-block;">
-                          <img src="${qrUrl}" width="70" height="70" style="display: block; border-radius: 8px;" alt="QR" />
-                        </div>
+                      <td align="right" valign="bottom" width="100">
+                         <div style="background-color: #ffffff; padding: 8px; border-radius: 12px; display:inline-block;">
+                             <img src="${qrUrl}" width="80" height="80" alt="QR Code" style="display:block; border-radius: 6px;"/>
+                         </div>
                       </td>
                     </tr>
                   </table>
                 </td>
               </tr>
-            </table>`;
+            </table>
+          `;
         });
       });
     }
