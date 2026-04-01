@@ -20,6 +20,20 @@ const globalLimiter = rateLimit({
 });
 
 // Middleware
+app.use(cors({
+  origin: function (origin, callback) {
+    if (!origin) return callback(null, true);
+    if (allowedOrigins.indexOf(origin) !== -1 || process.env.NODE_ENV !== 'production') {
+      callback(null, true);
+    } else {
+      callback(new Error('Not allowed by CORS'));
+    }
+  },
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'Origin', 'Accept', 'X-Requested-With'],
+}));
+
 app.use(helmet({
   contentSecurityPolicy: {
     directives: {
@@ -46,28 +60,6 @@ app.use('/api', globalLimiter);
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ limit: '50mb', extended: true }));
 app.use(cookieParser());
-
-const allowedOrigins = [
-  'http://localhost:3000',
-  'http://localhost:3001',
-  'http://nightpass.lk',
-  'https://nightpass.lk',
-  'http://www.nightpass.lk',
-  'https://www.nightpass.lk'
-];
-
-app.use(cors({
-  origin: function (origin, callback) {
-    // Allow requests with no origin (like mobile apps or curl)
-    if (!origin) return callback(null, true);
-    if (allowedOrigins.indexOf(origin) !== -1 || process.env.NODE_ENV !== 'production') {
-      callback(null, true);
-    } else {
-      callback(new Error('Not allowed by CORS'));
-    }
-  },
-  credentials: true
-}));
 
 // Routes
 app.use('/api/auth', authRoutes);
