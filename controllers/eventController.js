@@ -34,7 +34,8 @@ const createEvent = async (req, res) => {
     const { 
       title, date, venue, price, image, coverPhoto, attendees, 
       status, artist, location, time, trailerUrl,
-      venueAddress, venueMapLink, transportPublic, transportDriving 
+      venueAddress, venueMapLink, transportPublic, transportDriving,
+      artists
     } = req.body;
     
     const newEvent = new Event({
@@ -53,7 +54,8 @@ const createEvent = async (req, res) => {
       venueAddress,
       venueMapLink,
       transportPublic,
-      transportDriving
+      transportDriving,
+      artists
     });
 
     await newEvent.save();
