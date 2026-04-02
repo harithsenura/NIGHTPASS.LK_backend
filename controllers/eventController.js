@@ -17,8 +17,7 @@ const getEvents = async (req, res) => {
 // Get single event by ID
 const getEventById = async (req, res) => {
   try {
-    const event = await Event.findById(req.params.id)
-      .select('-trailerUrl');
+    const event = await Event.findById(req.params.id);
     if (!event) {
       return res.status(404).json({ message: 'Event not found' });
     }
