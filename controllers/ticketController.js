@@ -286,7 +286,7 @@ const getUserTickets = async (req, res) => {
     })
       .populate({
         path: 'eventId',
-        select: 'title date image venue location status' // ⚡ Only select fields needed for display
+        select: 'title date venue location status' // ⚡ Exclude image/coverPhoto (base64) to keep response fast
       })
       .sort({ createdAt: -1 })
       .lean(); // ⚡ Lean queries are much faster than full Mongoose documents

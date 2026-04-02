@@ -82,6 +82,19 @@ const updateEvent = async (req, res) => {
   }
 };
 
+// Get just the image for a specific event (lightweight endpoint for lazy loading)
+const getEventImage = async (req, res) => {
+  try {
+    const event = await Event.findById(req.params.id).select('image').lean();
+    if (!event) {
+      return res.status(404).json({ message: 'Event not found' });
+    }
+    res.status(200).json({ image: event.image || '' });
+  } catch (error) {
+    res.status(500).json({ message: 'Error fetching event image', error: error.message });
+  }
+};
+
 // Get admin overview data
 const getAdminOverview = async (req, res) => {
   try {
@@ -177,5 +190,6 @@ module.exports = {
   getEventById,
   createEvent,
   updateEvent,
-  getAdminOverview
+  getAdminOverview,
+  getEventImage
 };
