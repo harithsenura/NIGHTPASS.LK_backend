@@ -12,6 +12,7 @@ router.delete('/:id', protect, admin, ticketController.deleteTicket);
 router.post('/buy', optionalProtect, ticketController.buyTickets);
 router.post('/initiate-payhere', optionalProtect, ticketController.initiatePayHerePayment);
 router.post('/payhere-notify', ticketController.payhereNotify); // Public webhook
+router.post('/lock-tickets', ticketController.lockTickets); 
 router.post('/test-email', optionalProtect, ticketController.testEmail);
 router.post('/verify-availability', ticketController.verifyAvailability); 
 

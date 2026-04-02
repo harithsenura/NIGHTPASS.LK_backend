@@ -424,10 +424,58 @@ const findPurchase = async (req, res) => {
   }
 };
 
+// Lock tickets temporarily before checkout
+const lockTickets = async (req, res) => {
+  try {
+    const { tickets } = req.body;
+    if (!tickets || tickets.length === 0) return res.status(400).json({ message: 'No tickets provided', success: false });
+
+    await clearExpiredReservations();
+
+    const lockSessionId = `LOCK_${Date.now()}_${crypto.randomBytes(4).toString('hex')}`;
+    const expirationDate = new Date(Date.now() + 10 * 60 * 1000); 
+    const rollbackLog = [];
+
+    for (const item of tickets) {
+      const lockedTicket = await Ticket.findOneAndUpdate(
+        { 
+          _id: item.ticketId, 
+          $expr: { $gte: [{ $subtract: ["$quantity", { $add: ["$sold", "$lockedQty"] }] }, item.qty] }
+        },
+        { 
+          $inc: { lockedQty: item.qty },
+          $push: { reservations: { purchaseId: lockSessionId, qty: item.qty, expiresAt: expirationDate } } 
+        },
+        { new: true }
+      );
+
+      if (!lockedTicket) {
+        // Rollback
+        for (const rb of rollbackLog) {
+          await Ticket.updateOne(
+            { _id: rb.id },
+            { 
+               $inc: { lockedQty: -rb.qty },
+               $pull: { reservations: { purchaseId: lockSessionId } }
+            }
+          );
+        }
+        return res.status(400).json({ success: false, message: `Race condition: Not enough availability for ${item.name || 'a ticket'} right now.` });
+      }
+      rollbackLog.push({ id: item.ticketId, qty: item.qty });
+    }
+
+    res.status(200).json({ success: true, lockSessionId, expiresAt: expirationDate.toISOString() });
+  } catch (error) {
+    console.error("Locking tickets error:", error);
+    res.status(500).json({ success: false, message: 'Error locking tickets', error: error.message });
+  }
+};
+
 // Initiate PayHere Payment
 const initiatePayHerePayment = async (req, res) => {
   try {
-    const { eventId, user, guestInfo, tickets, totalAmount } = req.body;
+    const { eventId, user, guestInfo, tickets, totalAmount, lockSessionId } = req.body;
 
     console.log(`[PAYHERE] Initiating payment for Event: ${eventId}, Amount: ${totalAmount}`);
 
@@ -439,48 +487,55 @@ const initiatePayHerePayment = async (req, res) => {
 
     await clearExpiredReservations(); // Clear out Old Locks
 
-    // 2. Check Availability and Atomically LOCK Tickets for 10 minutes
+    // 2. Check Availability and Atomically LOCK Tickets for 10 minutes (if no lockSessionId provided)
     const rollbackLog = []; // In case partial locking occurs
     const processedTickets = [];
     const eventIdShort = eventId.toString().slice(-4).toUpperCase();
 
     for (const item of tickets) {
-      // Atomic increment of lockedQty and reservation pushing
-      const expirationDate = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes lock
-
-      const lockedTicket = await Ticket.findOneAndUpdate(
-        { 
-          _id: item.ticketId, 
-          // ensure quantity >= sold + lockedQty + item.qty
-          $expr: { $gte: [{ $subtract: ["$quantity", { $add: ["$sold", "$lockedQty"] }] }, item.qty] }
-        },
-        { 
-          $inc: { lockedQty: item.qty },
-          $push: { reservations: { purchaseId: "PENDING", qty: item.qty, expiresAt: expirationDate } } 
-        },
-        { new: true }
-      );
-
-      if (!lockedTicket) {
-        console.error(`[PAYHERE] Initiation failed: Not enough real-time availability for ${item.name}`);
-        // Rollback any successfully locked prior tickets in this request
-        for (const rb of rollbackLog) {
-          await Ticket.updateOne(
-            { _id: rb.id },
-            { 
-               $inc: { lockedQty: -rb.qty },
-               // Pull the exact reservation we just added
-               $pull: { reservations: { expiresAt: expirationDate } }
-            }
-          );
+      let dbTicket;
+      
+      if (lockSessionId) {
+        // Very important: Verify they actually hold the lock!
+        dbTicket = await Ticket.findOne({
+          _id: item.ticketId,
+          reservations: { $elemMatch: { purchaseId: lockSessionId, qty: item.qty, expiresAt: { $gte: new Date() } } }
+        });
+        
+        if (!dbTicket) {
+          console.error(`[PAYHERE] Session expired or invalid for ticket ${item.name}`);
+          return res.status(400).json({ message: `Your checkout session for ${item.name} has expired. Please go back and try again.` });
         }
-        return res.status(400).json({ message: `Race condition: Not enough availability for ${item.name} right now.` });
+      } else {
+        // Atomic increment of lockedQty and reservation pushing (Legacy Fallback)
+        const expirationDate = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes lock
+        dbTicket = await Ticket.findOneAndUpdate(
+          { 
+            _id: item.ticketId, 
+            $expr: { $gte: [{ $subtract: ["$quantity", { $add: ["$sold", "$lockedQty"] }] }, item.qty] }
+          },
+          { 
+            $inc: { lockedQty: item.qty },
+            $push: { reservations: { purchaseId: "PENDING", qty: item.qty, expiresAt: expirationDate } } 
+          },
+          { new: true }
+        );
+
+        if (!dbTicket) {
+          console.error(`[PAYHERE] Initiation failed: Not enough real-time availability for ${item.name}`);
+          for (const rb of rollbackLog) {
+            await Ticket.updateOne(
+              { _id: rb.id },
+              { $inc: { lockedQty: -rb.qty }, $pull: { reservations: { expiresAt: expirationDate } } }
+            );
+          }
+          return res.status(400).json({ message: `Race condition: Not enough availability for ${item.name} right now.` });
+        }
+        rollbackLog.push({ id: item.ticketId, qty: item.qty });
       }
 
-      rollbackLog.push({ id: item.ticketId, qty: item.qty });
-
       // Generate Ticket IDs
-      const ticketNameShort = lockedTicket.name.slice(0, 3).toUpperCase();
+      const ticketNameShort = dbTicket.name.slice(0, 3).toUpperCase();
       const ticketIds = [];
       for (let i = 0; i < item.qty; i++) {
         const randomSuffix = Math.random().toString(36).slice(2, 8).toUpperCase();
@@ -488,9 +543,9 @@ const initiatePayHerePayment = async (req, res) => {
       }
 
       processedTickets.push({
-        ticketId: lockedTicket._id,
-        name: lockedTicket.name,
-        price: lockedTicket.price,
+        ticketId: dbTicket._id,
+        name: dbTicket.name,
+        price: dbTicket.price,
         qty: item.qty,
         ticketIds: ticketIds
       });
@@ -535,10 +590,10 @@ const initiatePayHerePayment = async (req, res) => {
 
     await purchase.save();
 
-    // Map the temporary "PENDING" reservations to this purchase._id
+    // Map the temporary reservations to this purchase._id
     for (const pt of processedTickets) {
       await Ticket.updateOne(
-        { _id: pt.ticketId, "reservations.purchaseId": "PENDING" },
+        { _id: pt.ticketId, "reservations.purchaseId": lockSessionId || "PENDING" },
         { $set: { "reservations.$.purchaseId": purchase._id.toString() } }
       );
     }
@@ -748,6 +803,7 @@ module.exports = {
   getPurchaseById,
   findPurchase,
   testEmail,
-  verifyAvailability
+  verifyAvailability,
+  lockTickets
 };
 
