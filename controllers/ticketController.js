@@ -140,7 +140,7 @@ const buyTickets = async (req, res) => {
       const updatedTicket = await Ticket.findOneAndUpdate(
         { 
           _id: item.ticketId, 
-          $expr: { $gte: [{ $subtract: ["$quantity", { $add: ["$sold", "$lockedQty"] }] }, item.qty] } 
+          $expr: { $gte: [{ $subtract: ["$quantity", { $add: [{ $ifNull: ["$sold", 0] }, { $ifNull: ["$lockedQty", 0] }] }] }, item.qty] } 
         },
         { $inc: { sold: item.qty } },
         { new: true }
@@ -440,7 +440,7 @@ const lockTickets = async (req, res) => {
       const lockedTicket = await Ticket.findOneAndUpdate(
         { 
           _id: item.ticketId, 
-          $expr: { $gte: [{ $subtract: ["$quantity", { $add: ["$sold", "$lockedQty"] }] }, item.qty] }
+          $expr: { $gte: [{ $subtract: ["$quantity", { $add: [{ $ifNull: ["$sold", 0] }, { $ifNull: ["$lockedQty", 0] }] }] }, item.qty] }
         },
         { 
           $inc: { lockedQty: item.qty },
@@ -512,7 +512,7 @@ const initiatePayHerePayment = async (req, res) => {
         dbTicket = await Ticket.findOneAndUpdate(
           { 
             _id: item.ticketId, 
-            $expr: { $gte: [{ $subtract: ["$quantity", { $add: ["$sold", "$lockedQty"] }] }, item.qty] }
+            $expr: { $gte: [{ $subtract: ["$quantity", { $add: [{ $ifNull: ["$sold", 0] }, { $ifNull: ["$lockedQty", 0] }] }] }, item.qty] }
           },
           { 
             $inc: { lockedQty: item.qty },
