@@ -1,13 +1,17 @@
 const https = require('https');
+const nodemailer = require('nodemailer');
 
 /**
- * Sends a premium HTML email via Resend REST API
+ * Sends a premium HTML email via Resend REST API or Nodemailer fallback
  */
 const sendEmail = async ({ to, subject, data }) => {
   try {
     const resendApiKey = process.env.RESEND_API_KEY;
-    if (!resendApiKey) {
-      throw new Error("Missing RESEND_API_KEY environment variable. Please add it to Railway.");
+    const emailUser = process.env.EMAIL_USER;
+    const emailPass = process.env.EMAIL_APP_PASSWORD;
+
+    if (!resendApiKey && (!emailUser || !emailPass)) {
+      throw new Error("Missing email configuration. Please set RESEND_API_KEY or EMAIL_USER/EMAIL_APP_PASSWORD environment variables.");
     }
 
     const nextAuthUrl = process.env.NEXTAUTH_URL || 'https://nightpass.lk';
@@ -132,53 +136,75 @@ const sendEmail = async ({ to, subject, data }) => {
     </body>
     </html>`;
 
-    const postData = JSON.stringify({
-      from: 'NightPass <tickets@nightpass.lk>',
-      to: [to],
-      subject: subject || `🎟️ Your Tickets for ${data.eventName} - NightPass`,
-      html: htmlTemplate,
-    });
+    if (resendApiKey) {
+      const postData = JSON.stringify({
+        from: 'NightPass <tickets@nightpass.lk>',
+        to: [to],
+        subject: subject || `🎟️ Your Tickets for ${data.eventName} - NightPass`,
+        html: htmlTemplate,
+      });
 
-    const options = {
-      hostname: 'api.resend.com',
-      path: '/emails',
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${resendApiKey}`,
-        'Content-Type': 'application/json',
-        'Content-Length': Buffer.byteLength(postData),
-      },
-      timeout: 10000,
-    };
+      const options = {
+        hostname: 'api.resend.com',
+        path: '/emails',
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${resendApiKey}`,
+          'Content-Type': 'application/json',
+          'Content-Length': Buffer.byteLength(postData),
+        },
+        timeout: 10000,
+      };
 
-    return new Promise((resolve, reject) => {
-      const req = https.request(options, (res) => {
-        let responseBody = '';
-        res.on('data', (chunk) => { responseBody += chunk; });
-        res.on('end', () => {
-          if (res.statusCode >= 200 && res.statusCode < 300) {
-            console.log('[RESEND] Premium email sent successfully');
-            resolve({ success: true, details: JSON.parse(responseBody) });
-          } else {
-            console.error('[RESEND] API Error:', responseBody);
-            resolve({ success: false, error: `Resend API Error: ${responseBody}` });
-          }
+      return new Promise((resolve, reject) => {
+        const req = https.request(options, (res) => {
+          let responseBody = '';
+          res.on('data', (chunk) => { responseBody += chunk; });
+          res.on('end', () => {
+            if (res.statusCode >= 200 && res.statusCode < 300) {
+              console.log('[RESEND] Premium email sent successfully');
+              resolve({ success: true, details: JSON.parse(responseBody) });
+            } else {
+              console.error('[RESEND] API Error:', responseBody);
+              resolve({ success: false, error: `Resend API Error: ${responseBody}` });
+            }
+          });
         });
+
+        req.on('error', (err) => {
+          console.error('[RESEND] Network Error:', err.message);
+          resolve({ success: false, error: `Network error: ${err.message}` });
+        });
+
+        req.on('timeout', () => {
+          req.destroy();
+          resolve({ success: false, error: 'Resend API connection timed out' });
+        });
+
+        req.write(postData);
+        req.end();
+      });
+    } else {
+      // Fallback to Nodemailer
+      const transporter = nodemailer.createTransport({
+        service: 'gmail',
+        auth: {
+          user: emailUser,
+          pass: emailPass,
+        },
       });
 
-      req.on('error', (err) => {
-        console.error('[RESEND] Network Error:', err.message);
-        resolve({ success: false, error: `Network error: ${err.message}` });
-      });
+      const mailOptions = {
+        from: `"NightPass" <${emailUser}>`,
+        to,
+        subject: subject || `🎟️ Your Tickets for ${data.eventName} - NightPass`,
+        html: htmlTemplate,
+      };
 
-      req.on('timeout', () => {
-        req.destroy();
-        resolve({ success: false, error: 'Resend API connection timed out' });
-      });
-
-      req.write(postData);
-      req.end();
-    });
+      const info = await transporter.sendMail(mailOptions);
+      console.log('[NODEMAILER] Premium email sent successfully via Gmail:', info.messageId);
+      return { success: true, details: info };
+    }
 
   } catch (error) {
     console.error('Error in sendEmail (Premium):', error.message);
