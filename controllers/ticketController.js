@@ -96,19 +96,42 @@ const buyTickets = async (req, res) => {
       return res.status(400).json({ message: 'No tickets selected' });
     }
 
-    // Process each ticket to ensure availability and update sold count
-    const dbTickets = [];
+    // Verify first (Soft check)
     for (const item of tickets) {
       const dbTicket = await Ticket.findById(item.ticketId);
-      
       if (!dbTicket) {
         return res.status(404).json({ message: `Ticket ${item.name} not found` });
       }
-
       if (dbTicket.quantity - dbTicket.sold < item.qty) {
         return res.status(400).json({ message: `Not enough availability for ${item.name}` });
       }
-      dbTickets.push({ dbTicket: dbTicket, qtyToBuy: item.qty });
+    }
+
+    // Process each ticket to ensure availability and update sold count ATOMICALLY
+    const dbTickets = [];
+    const rollbackLog = []; // Keep track to rollback if needed
+
+    for (const item of tickets) {
+      // Atomic increment
+      const updatedTicket = await Ticket.findOneAndUpdate(
+        { 
+          _id: item.ticketId, 
+          $expr: { $gte: [{ $subtract: ["$quantity", "$sold"] }, item.qty] } 
+        },
+        { $inc: { sold: item.qty } },
+        { new: true }
+      );
+      
+      if (!updatedTicket) {
+        // Rollback previous increments
+        for (const rb of rollbackLog) {
+          await Ticket.updateOne({ _id: rb.id }, { $inc: { sold: -rb.qty } });
+        }
+        return res.status(400).json({ message: `Race condition: Not enough availability for ${item.name} at this exact moment.` });
+      }
+
+      rollbackLog.push({ id: item.ticketId, qty: item.qty });
+      dbTickets.push({ dbTicket: updatedTicket, qtyToBuy: item.qty });
     }
 
     // After all checks pass, save the updates
@@ -116,9 +139,7 @@ const buyTickets = async (req, res) => {
     const eventIdShort = eventId.toString().slice(-4).toUpperCase();
     
     for (const { dbTicket, qtyToBuy } of dbTickets) {
-      dbTicket.sold += qtyToBuy;
-      await dbTicket.save();
-
+      // Notice: dbTicket is already incremented and saved atomically above.
       const ticketNameShort = dbTicket.name.slice(0, 3).toUpperCase();
       const ticketIds = [];
       
@@ -551,12 +572,15 @@ const payhereNotify = async (req, res) => {
         return res.status(200).send("OK");
       }
 
-      // 1. Update ticket availability (Sold counts)
+      // 1. Update ticket availability (Sold counts ATOMICALLY)
       for (const item of purchase.tickets) {
-        const dbTicket = await Ticket.findById(item.ticketId);
-        if (dbTicket) {
-          dbTicket.sold += item.qty;
-          await dbTicket.save();
+        const dbTicket = await Ticket.findOneAndUpdate(
+          { _id: item.ticketId },
+          { $inc: { sold: item.qty } },
+          { new: true }
+        );
+        if (dbTicket && dbTicket.sold > dbTicket.quantity) {
+          console.error(`[CRITICAL] Oversold ticket ${dbTicket.name}! Sold: ${dbTicket.sold}, Max: ${dbTicket.quantity}. User already paid via PayHere.`);
         }
       }
 
@@ -604,6 +628,47 @@ const payhereNotify = async (req, res) => {
   }
 };
 
+// Verify Ticket Availability (Before Checkout/Payment)
+const verifyAvailability = async (req, res) => {
+  try {
+    const { tickets } = req.body;
+    if (!tickets || tickets.length === 0) {
+      return res.status(400).json({ message: 'No tickets provided', available: false });
+    }
+
+    const unavailabilities = [];
+
+    for (const item of tickets) {
+      // Use fallback properties if needed since payload mighty vary slightly
+      const tId = item.ticketId || item.id || item._id; 
+      const dbTicket = await Ticket.findById(tId);
+      
+      if (!dbTicket) {
+        unavailabilities.push(`${item.name || 'Unknown Ticket'} not found`);
+        continue;
+      }
+      
+      // Real-time capacity check
+      if (dbTicket.quantity - dbTicket.sold < item.qty) {
+        unavailabilities.push(`Not enough availability for ${dbTicket.name} (Only ${Math.max(0, dbTicket.quantity - dbTicket.sold)} left)`);
+      }
+    }
+
+    if (unavailabilities.length > 0) {
+      return res.status(200).json({ 
+        available: false, 
+        message: 'Some tickets are no longer available', 
+        details: unavailabilities 
+      });
+    }
+
+    res.status(200).json({ available: true, message: 'Tickets are available' });
+  } catch (error) {
+    console.error("Availability verification error:", error);
+    res.status(500).json({ message: 'Error verifying tickets', error: error.message, available: false });
+  }
+};
+
 module.exports = {
   getEventTickets,
   createTicket,
@@ -615,6 +680,7 @@ module.exports = {
   getUserTickets,
   getPurchaseById,
   findPurchase,
-  testEmail
+  testEmail,
+  verifyAvailability
 };
 
