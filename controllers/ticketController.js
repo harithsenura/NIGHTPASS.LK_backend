@@ -5,7 +5,6 @@ const Event = require('../models/Event');
 const User = require('../models/User');
 const sendEmail = require('../utils/sendEmail');
 const { sanitizeInput } = require('../utils/sanitize');
-const { sanitizeInput } = require('../utils/sanitize');
 
 // Helper to clean up expired PayHere reservations globally
 const clearExpiredReservations = async () => {
