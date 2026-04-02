@@ -185,7 +185,8 @@ const buyTickets = async (req, res) => {
               tickets: processedTickets,
               totalAmount,
               paymentMethod: "Manual/Login Purchase",
-              billingAddress: guestInfo?.address || "N/A"
+              billingAddress: guestInfo?.address || "N/A",
+              phone: guestInfo?.phone || "N/A"
             }
           });
           
@@ -581,7 +582,8 @@ const payhereNotify = async (req, res) => {
               tickets: purchase.tickets,
               totalAmount: purchase.totalAmount,
               paymentMethod: req.body.method || "PayHere Card Payment",
-              billingAddress: purchase.guestInfo?.address || "N/A"
+              billingAddress: purchase.guestInfo?.address || "N/A",
+              phone: purchase.guestInfo?.phone || "N/A"
             }
           });
           console.log(`[PAYHERE-WEBHOOK] Resend API call result: ${JSON.stringify(emailResult)}`);
