@@ -22,6 +22,15 @@ const ticketSchema = new mongoose.Schema({
     type: Number,
     default: 0
   },
+  lockedQty: {
+    type: Number,
+    default: 0
+  },
+  reservations: [{
+    purchaseId: String,
+    qty: Number,
+    expiresAt: Date
+  }],
   customStatus: {
     type: String,
     default: ''

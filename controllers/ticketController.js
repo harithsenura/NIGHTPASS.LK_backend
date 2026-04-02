@@ -5,6 +5,29 @@ const Event = require('../models/Event');
 const User = require('../models/User');
 const sendEmail = require('../utils/sendEmail');
 const { sanitizeInput } = require('../utils/sanitize');
+const { sanitizeInput } = require('../utils/sanitize');
+
+// Helper to clean up expired PayHere reservations globally
+const clearExpiredReservations = async () => {
+  try {
+    const expiredTickets = await Ticket.find({ 'reservations.expiresAt': { $lt: new Date() } });
+    for (const t of expiredTickets) {
+      const expired = t.reservations.filter(r => r.expiresAt < new Date());
+      const expiredQty = expired.reduce((acc, r) => acc + r.qty, 0);
+      if (expiredQty > 0) {
+        await Ticket.updateOne(
+          { _id: t._id },
+          { 
+            $pull: { reservations: { expiresAt: { $lt: new Date() } } },
+            $inc: { lockedQty: -expiredQty }
+          }
+        );
+      }
+    }
+  } catch (error) {
+    console.error("Cleanup reservations error:", error);
+  }
+};
 
 // Get all tickets for a specific event
 const getEventTickets = async (req, res) => {
@@ -96,13 +119,15 @@ const buyTickets = async (req, res) => {
       return res.status(400).json({ message: 'No tickets selected' });
     }
 
+    await clearExpiredReservations(); // Clear out Old Locks
+
     // Verify first (Soft check)
     for (const item of tickets) {
       const dbTicket = await Ticket.findById(item.ticketId);
       if (!dbTicket) {
         return res.status(404).json({ message: `Ticket ${item.name} not found` });
       }
-      if (dbTicket.quantity - dbTicket.sold < item.qty) {
+      if (dbTicket.quantity - dbTicket.sold - (dbTicket.lockedQty || 0) < item.qty) {
         return res.status(400).json({ message: `Not enough availability for ${item.name}` });
       }
     }
@@ -116,7 +141,7 @@ const buyTickets = async (req, res) => {
       const updatedTicket = await Ticket.findOneAndUpdate(
         { 
           _id: item.ticketId, 
-          $expr: { $gte: [{ $subtract: ["$quantity", "$sold"] }, item.qty] } 
+          $expr: { $gte: [{ $subtract: ["$quantity", { $add: ["$sold", "$lockedQty"] }] }, item.qty] } 
         },
         { $inc: { sold: item.qty } },
         { new: true }
@@ -413,17 +438,63 @@ const initiatePayHerePayment = async (req, res) => {
       return res.status(400).json({ message: 'No tickets selected' });
     }
 
-    // 2. Check Availability (without updating sold count yet)
+    await clearExpiredReservations(); // Clear out Old Locks
+
+    // 2. Check Availability and Atomically LOCK Tickets for 10 minutes
+    const rollbackLog = []; // In case partial locking occurs
+    const processedTickets = [];
+    const eventIdShort = eventId.toString().slice(-4).toUpperCase();
+
     for (const item of tickets) {
-      const dbTicket = await Ticket.findById(item.ticketId);
-      if (!dbTicket) {
-        console.error(`[PAYHERE] Initiation failed: Ticket ${item.name} not found`);
-        return res.status(404).json({ message: `Ticket ${item.name} not found` });
+      // Atomic increment of lockedQty and reservation pushing
+      const expirationDate = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes lock
+
+      const lockedTicket = await Ticket.findOneAndUpdate(
+        { 
+          _id: item.ticketId, 
+          // ensure quantity >= sold + lockedQty + item.qty
+          $expr: { $gte: [{ $subtract: ["$quantity", { $add: ["$sold", "$lockedQty"] }] }, item.qty] }
+        },
+        { 
+          $inc: { lockedQty: item.qty },
+          $push: { reservations: { purchaseId: "PENDING", qty: item.qty, expiresAt: expirationDate } } 
+        },
+        { new: true }
+      );
+
+      if (!lockedTicket) {
+        console.error(`[PAYHERE] Initiation failed: Not enough real-time availability for ${item.name}`);
+        // Rollback any successfully locked prior tickets in this request
+        for (const rb of rollbackLog) {
+          await Ticket.updateOne(
+            { _id: rb.id },
+            { 
+               $inc: { lockedQty: -rb.qty },
+               // Pull the exact reservation we just added
+               $pull: { reservations: { expiresAt: expirationDate } }
+            }
+          );
+        }
+        return res.status(400).json({ message: `Race condition: Not enough availability for ${item.name} right now.` });
       }
-      if (dbTicket.quantity - dbTicket.sold < item.qty) {
-        console.error(`[PAYHERE] Initiation failed: Not enough availability for ${item.name}`);
-        return res.status(400).json({ message: `Not enough availability for ${item.name}` });
+
+      rollbackLog.push({ id: item.ticketId, qty: item.qty });
+
+      // Generate Ticket IDs
+      const ticketNameShort = lockedTicket.name.slice(0, 3).toUpperCase();
+      const ticketIds = [];
+      for (let i = 0; i < item.qty; i++) {
+        const randomSuffix = Math.random().toString(36).slice(2, 8).toUpperCase();
+        ticketIds.push(`NP-${eventIdShort}-${ticketNameShort}-${randomSuffix}`);
       }
+
+      processedTickets.push({
+        ticketId: lockedTicket._id,
+        name: lockedTicket.name,
+        price: lockedTicket.price,
+        qty: item.qty,
+        ticketIds: ticketIds
+      });
     }
 
     // 3. Generate unique Order ID
@@ -447,30 +518,7 @@ const initiatePayHerePayment = async (req, res) => {
 
     console.log(`[PAYHERE] Generated Hash for Order: ${orderId}, Amount: ${amountFormatted}`);
 
-    // 5. Pre-generate ticket IDs and create a 'pending' purchase record
-    const processedTickets = [];
-    const eventIdShort = eventId.toString().slice(-4).toUpperCase();
-    
-    for (const item of tickets) {
-      const dbTicket = await Ticket.findById(item.ticketId);
-      const ticketNameShort = dbTicket.name.slice(0, 3).toUpperCase();
-      const ticketIds = [];
-      
-      for (let i = 0; i < item.qty; i++) {
-        const randomSuffix = Math.random().toString(36).slice(2, 8).toUpperCase();
-        const uniqueId = `NP-${eventIdShort}-${ticketNameShort}-${randomSuffix}`;
-        ticketIds.push(uniqueId);
-      }
-
-      processedTickets.push({
-        ticketId: dbTicket._id,
-        name: dbTicket.name,
-        price: dbTicket.price,
-        qty: item.qty,
-        ticketIds: ticketIds
-      });
-    }
-
+    // Make a note of this purchase's ID to map to reservations
     const purchase = new TicketPurchase({
       eventId,
       user: user || null,
@@ -488,6 +536,13 @@ const initiatePayHerePayment = async (req, res) => {
 
     await purchase.save();
 
+    // Map the temporary "PENDING" reservations to this purchase._id
+    for (const pt of processedTickets) {
+      await Ticket.updateOne(
+        { _id: pt.ticketId, "reservations.purchaseId": "PENDING" },
+        { $set: { "reservations.$.purchaseId": purchase._id.toString() } }
+      );
+    }
     // 6. Prepare response for frontend
     const payhereData = {
       sandbox: process.env.PAYHERE_SANDBOX === 'true',
@@ -574,6 +629,16 @@ const payhereNotify = async (req, res) => {
 
       // 1. Update ticket availability (Sold counts ATOMICALLY)
       for (const item of purchase.tickets) {
+        // First conditionally remove the reservation lock if it hasn't expired yet
+        await Ticket.updateOne(
+          { _id: item.ticketId, "reservations.purchaseId": purchaseId },
+          { 
+            $inc: { lockedQty: -item.qty },
+            $pull: { reservations: { purchaseId: purchaseId } }
+          }
+        );
+
+        // Then atomically increment the sold count
         const dbTicket = await Ticket.findOneAndUpdate(
           { _id: item.ticketId },
           { $inc: { sold: item.qty } },
@@ -638,6 +703,8 @@ const verifyAvailability = async (req, res) => {
 
     const unavailabilities = [];
 
+    await clearExpiredReservations(); // Clear out Old Locks
+
     for (const item of tickets) {
       // Use fallback properties if needed since payload mighty vary slightly
       const tId = item.ticketId || item.id || item._id; 
@@ -648,9 +715,10 @@ const verifyAvailability = async (req, res) => {
         continue;
       }
       
-      // Real-time capacity check
-      if (dbTicket.quantity - dbTicket.sold < item.qty) {
-        unavailabilities.push(`Not enough availability for ${dbTicket.name} (Only ${Math.max(0, dbTicket.quantity - dbTicket.sold)} left)`);
+      // Real-time capacity check including lockedQty
+      const available = dbTicket.quantity - dbTicket.sold - (dbTicket.lockedQty || 0);
+      if (available < item.qty) {
+        unavailabilities.push(`Not enough availability for ${dbTicket.name} (Only ${Math.max(0, available)} left)`);
       }
     }
 
