@@ -94,13 +94,17 @@ const sendEmail = async ({ to, subject, data }) => {
             </tr>
           </table>
 
-          <!-- CTA Button -->
+          <!-- CTA Buttons -->
           <div style="margin-top: 40px; text-align: center;">
-            <a href="${nextAuthUrl}/dashboard" style="display: inline-block; background-color: #2563eb; color: #ffffff; padding: 16px 32px; border-radius: 12px; text-decoration: none; font-weight: 700; font-size: 16px; box-shadow: 0 4px 10px rgba(37, 99, 235, 0.2);">
-              Access Your Dashboard
+            <a href="${nextAuthUrl}/download/${data.purchaseId}" style="display: inline-block; background-color: #10b981; color: #ffffff; padding: 18px 36px; border-radius: 12px; text-decoration: none; font-weight: 800; font-size: 16px; box-shadow: 0 4px 15px rgba(16, 185, 129, 0.25); border: 2px solid #059669; margin-bottom: 20px;">
+              ⬇ Download Digital Passes
+            </a>
+            <br>
+            <a href="${nextAuthUrl}/dashboard" style="display: inline-block; background-color: transparent; color: #64748b; padding: 12px 24px; border-radius: 12px; text-decoration: none; font-weight: 600; font-size: 14px; border: 1px solid #e2e8f0;">
+              Go to User Dashboard
             </a>
             <p style="margin: 16px 0 0 0; font-size: 13px; color: #94a3b8;">
-              Download your QR-code tickets from the dashboard.
+              Click the green button above to instantly save your high-resolution tickets.
             </p>
           </div>
         </div>
