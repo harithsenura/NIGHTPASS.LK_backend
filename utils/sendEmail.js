@@ -1,7 +1,7 @@
 const https = require('https');
 
 /**
- * Sends a premium HTML email via Resend REST API
+ * Sends a professional, premium HTML email via Resend REST API (Light-Mode Optimized)
  */
 const sendEmail = async ({ to, subject, data }) => {
   try {
@@ -12,120 +12,115 @@ const sendEmail = async ({ to, subject, data }) => {
 
     const nextAuthUrl = process.env.NEXTAUTH_URL || 'https://nightpass.lk';
     
-    // 1. Generate Order Summary
+    // 1. Generate Order Summary Rows (Light-Mode Optimized)
     let ticketSummaryHtml = '';
     if (data.tickets && Array.isArray(data.tickets)) {
       data.tickets.forEach((ticket) => {
         ticketSummaryHtml += `
           <tr>
-            <td style="padding: 12px 0; border-bottom: 1px solid rgba(255,255,255,0.05); color: #ffffff;">${ticket.qty}x ${ticket.name}</td>
-            <td style="padding: 12px 0; border-bottom: 1px solid rgba(255,255,255,0.05); text-align: right; color: #ffffff;">LKR ${(ticket.price * ticket.qty).toLocaleString()}</td>
+            <td style="padding: 12px 0; border-bottom: 1px solid #edf2f7; color: #1e293b; font-size: 14px;">
+              <span style="font-weight: 600;">${ticket.qty}x</span> ${ticket.name}
+            </td>
+            <td style="padding: 12px 0; border-bottom: 1px solid #edf2f7; text-align: right; color: #1e293b; font-weight: 600; font-size: 14px;">
+              LKR ${(ticket.price * ticket.qty).toLocaleString()}
+            </td>
           </tr>
         `;
       });
     }
 
-    // 2. Main HTML Wrapper
+    // 2. Professional Light-Mode HTML Template
     const htmlTemplate = `
     <!DOCTYPE html>
     <html lang="en">
-    <head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"></head>
-    <body style="background-color: #05050A; color: #ffffff; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; margin: 0; padding: 0;">
+    <head>
+      <meta charset="UTF-8">
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      <title>Email Confirmation</title>
+    </head>
+    <body style="background-color: #f4f7fa; color: #1e293b; font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; margin: 0; padding: 0; -webkit-font-smoothing: antialiased;">
       <div style="max-width: 600px; margin: 0 auto; padding: 40px 20px;">
         
-        <!-- Header -->
-        <div style="text-align: center; margin-bottom: 40px;">
-          <div style="display:inline-block; background-color: rgba(34, 197, 94, 0.1); border: 1px solid rgba(34, 197, 94, 0.2); padding: 12px 24px; border-radius: 50px; margin-bottom: 24px;">
-            <span style="color: #4ade80; font-weight: bold; font-family: monospace; letter-spacing: 1px;">✓ PAYMENT SUCCESSFUL</span>
+        <!-- Header & Logo -->
+        <div style="text-align: center; margin-bottom: 32px;">
+          <h2 style="margin: 0; color: #2563eb; font-size: 24px; font-weight: 800; letter-spacing: -0.5px; text-transform: uppercase;">NIGHT<span style="color: #1e293b;">PASS</span>.LK</h2>
+        </div>
+
+        <!-- Main Content Card -->
+        <div style="background-color: #ffffff; border-radius: 16px; padding: 40px; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06); border: 1px solid #e2e8f0;">
+          
+          <!-- Success Status -->
+          <div style="text-align: center; margin-bottom: 32px;">
+            <div style="display: inline-block; background-color: #ecfdf5; border: 1px solid #d1fae5; padding: 8px 16px; border-radius: 9999px; margin-bottom: 20px;">
+              <span style="color: #059669; font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px;">✓ Payment Successful</span>
+            </div>
+            <h1 style="margin: 0; font-size: 28px; font-weight: 800; color: #0f172a; line-height: 1.2;">Your Order is Confirmed!</h1>
+            <p style="margin: 12px 0 0 0; color: #64748b; font-size: 16px; line-height: 1.5;">
+              Hi <span style="color: #0f172a; font-weight: 600;">${data.customerName}</span>, your seats are booked for <span style="color: #2563eb; font-weight: 600;">${data.eventName}</span>.
+            </p>
           </div>
-          <h1 style="margin: 0; font-size: 36px; font-weight: 900; letter-spacing: -1px; color: #ffffff; text-transform: uppercase;">ORDER <span style="color: #2e6dff;">CONFIRMED</span></h1>
-          <p style="margin: 15px 0 0 0; color: rgba(255,255,255,0.6); font-size: 16px; line-height: 1.6;">
-            Hi <strong style="color: #ffffff;">${data.customerName}</strong>, thank you for your purchase. Your order for <strong>${data.eventName}</strong> has been confirmed.
+
+          <!-- Divider -->
+          <div style="height: 1px; background-color: #f1f5f9; margin-bottom: 32px;"></div>
+
+          <!-- Customer & Order details -->
+          <h3 style="margin: 0 0 16px 0; font-size: 14px; font-weight: 700; text-transform: uppercase; color: #94a3b8; letter-spacing: 0.05em;">Order Details</h3>
+          <table width="100%" cellpadding="0" cellspacing="0" border="0" style="font-size: 14px; margin-bottom: 32px;">
+            <tr>
+              <td style="padding: 4px 0; color: #64748b;">Order Number:</td>
+              <td style="padding: 4px 0; color: #0f172a; text-align: right; font-weight: 600;">#${data.purchaseId.substring(data.purchaseId.length-8).toUpperCase()}</td>
+            </tr>
+            <tr>
+              <td style="padding: 4px 0; color: #64748b;">Date:</td>
+              <td style="padding: 4px 0; color: #0f172a; text-align: right; font-weight: 600;">${new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}</td>
+            </tr>
+            <tr>
+              <td style="padding: 4px 0; color: #64748b;">Payment Method:</td>
+              <td style="padding: 4px 0; color: #0f172a; text-align: right; font-weight: 600;">${data.paymentMethod || 'Online Payment'}</td>
+            </tr>
+            <tr>
+              <td style="padding: 4px 0; color: #64748b;">Billing Email:</td>
+              <td style="padding: 4px 0; color: #0f172a; text-align: right; font-weight: 600;">${to}</td>
+            </tr>
+          </table>
+
+          <!-- Items Table -->
+          <h3 style="margin: 0 0 16px 0; font-size: 14px; font-weight: 700; text-transform: uppercase; color: #94a3b8; letter-spacing: 0.05em;">Ticket Summary</h3>
+          <table width="100%" cellpadding="0" cellspacing="0" border="0" style="margin-bottom: 24px;">
+            ${ticketSummaryHtml}
+            <tr>
+               <td style="padding: 24px 0 0 0; color: #0f172a; font-size: 16px; font-weight: 800;">Total Paid</td>
+               <td style="padding: 24px 0 0 0; text-align: right; color: #2563eb; font-size: 20px; font-weight: 800;">LKR ${data.totalAmount.toLocaleString()}</td>
+            </tr>
+          </table>
+
+          <!-- CTA Button -->
+          <div style="margin-top: 40px; text-align: center;">
+            <a href="${nextAuthUrl}/dashboard" style="display: inline-block; background-color: #2563eb; color: #ffffff; padding: 16px 32px; border-radius: 12px; text-decoration: none; font-weight: 700; font-size: 16px; box-shadow: 0 4px 10px rgba(37, 99, 235, 0.2);">
+              Access Your Dashboard
+            </a>
+            <p style="margin: 16px 0 0 0; font-size: 13px; color: #94a3b8;">
+              Download your QR-code tickets from the dashboard.
+            </p>
+          </div>
+        </div>
+
+        <!-- How to Use Section -->
+        <div style="margin-top: 32px; padding: 0 20px;">
+          <h4 style="margin: 0 0 12px 0; color: #0f172a; font-size: 16px; font-weight: 700;">Event Information:</h4>
+          <p style="margin: 0; color: #64748b; font-size: 14px; line-height: 1.6;">
+            <strong>Event:</strong> ${data.eventName}<br>
+            <strong>Date:</strong> ${data.eventDate}<br>
+            <strong>Venue:</strong> ${data.eventVenue || 'See details in dashboard'}
           </p>
         </div>
 
-        <!-- Receipt Box -->
-        <div style="background-color: #0F1014; border: 1px solid #1a1b23; border-radius: 20px; padding: 30px; margin-bottom: 40px; box-shadow: 0 20px 40px rgba(0,0,0,0.4);">
-          <h3 style="margin: 0 0 24px 0; font-size: 16px; font-weight: 900; text-transform: uppercase; letter-spacing: 1px; color: #2e6dff; border-bottom: 1px solid #1a1b23; padding-bottom: 15px;">Your Receipt</h3>
-          
-          <table width="100%" cellpadding="0" cellspacing="0" border="0" style="font-size: 14px; margin-bottom: 24px;">
-            <tr>
-              <td style="padding: 8px 0; color: rgba(255,255,255,0.5); width: 40%;">Order No:</td>
-              <td style="padding: 8px 0; color: #ffffff; text-align: right; font-family: monospace; font-weight: bold;">#${data.purchaseId.substring(data.purchaseId.length-8).toUpperCase()}</td>
-            </tr>
-            <tr>
-              <td style="padding: 8px 0; color: rgba(255,255,255,0.5);">Date:</td>
-              <td style="padding: 8px 0; color: #ffffff; text-align: right;">${new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}</td>
-            </tr>
-            <tr>
-              <td style="padding: 8px 0; color: rgba(255,255,255,0.5);">Name:</td>
-              <td style="padding: 8px 0; color: #ffffff; text-align: right;">${data.customerName}</td>
-            </tr>
-            <tr>
-              <td style="padding: 8px 0; color: rgba(255,255,255,0.5);">Email:</td>
-              <td style="padding: 8px 0; color: #ffffff; text-align: right;">${to}</td>
-            </tr>
-            ${data.phone ? `
-            <tr>
-              <td style="padding: 8px 0; color: rgba(255,255,255,0.5);">Phone:</td>
-              <td style="padding: 8px 0; color: #ffffff; text-align: right;">${data.phone}</td>
-            </tr>
-            ` : ''}
-            <tr>
-              <td style="padding: 8px 0; color: rgba(255,255,255,0.5);">Billing Address:</td>
-              <td style="padding: 8px 0; color: #ffffff; text-align: right;">${data.billingAddress || 'N/A'}</td>
-            </tr>
-            <tr>
-              <td style="padding: 8px 0; color: rgba(255,255,255,0.5);">Payment Method:</td>
-              <td style="padding: 8px 0; color: #ffffff; text-align: right;">${data.paymentMethod || 'Credit / Debit Card'}</td>
-            </tr>
-          </table>
-
-          <h4 style="margin: 0 0 15px 0; font-size: 14px; font-weight: bold; color: rgba(255,255,255,0.8);">Order Summary</h4>
-          <table width="100%" cellpadding="0" cellspacing="0" border="0" style="font-size: 14px;">
-            ${ticketSummaryHtml}
-            <tr>
-              <td style="padding: 20px 0 0 0; font-size: 18px; font-weight: 900; color: #ffffff;">GRAND TOTAL</td>
-              <td style="padding: 20px 0 0 0; text-align: right; font-size: 18px; font-weight: 900; color: #4ade80;">LKR ${data.totalAmount.toLocaleString()}</td>
-            </tr>
-          </table>
-        </div>
-
-        <!-- Download Instructions -->
-        <div style="background-color: rgba(46, 109, 255, 0.05); border: 1px solid rgba(46, 109, 255, 0.15); border-radius: 20px; padding: 30px; margin-bottom: 40px;">
-          <h3 style="margin: 0 0 20px 0; font-size: 18px; font-weight: 900; color: #ffffff;">How to securely view your tickets:</h3>
-          
-          <table width="100%" cellpadding="0" cellspacing="0" border="0" style="font-size: 15px; line-height: 1.6;">
-            <tr>
-              <td width="36" valign="top" style="padding-bottom: 16px;">
-                <div style="background-color: #2e6dff; color: #ffffff; width: 24px; height: 24px; border-radius: 50%; text-align: center; line-height: 24px; font-weight: bold; font-size: 12px;">1</div>
-              </td>
-              <td style="padding-bottom: 16px; color: rgba(255,255,255,0.8);">Click the dashboard button below to visit NightPass.</td>
-            </tr>
-            <tr>
-              <td width="36" valign="top" style="padding-bottom: 16px;">
-                <div style="background-color: #2e6dff; color: #ffffff; width: 24px; height: 24px; border-radius: 50%; text-align: center; line-height: 24px; font-weight: bold; font-size: 12px;">2</div>
-              </td>
-              <td style="padding-bottom: 16px; color: rgba(255,255,255,0.8);">Sign in using exactly this email: <strong style="color: #ffffff;">${to}</strong></td>
-            </tr>
-            <tr>
-              <td width="36" valign="top">
-                <div style="background-color: #2e6dff; color: #ffffff; width: 24px; height: 24px; border-radius: 50%; text-align: center; line-height: 24px; font-weight: bold; font-size: 12px;">3</div>
-              </td>
-              <td style="color: rgba(255,255,255,0.8);">Navigate to your <strong>Dashboard</strong> to view and download your secure QR code.</td>
-            </tr>
-          </table>
-
-          <div style="text-align: center; margin-top: 35px;">
-            <a href="${nextAuthUrl}/dashboard" style="display: inline-block; background-color: #2e6dff; color: #ffffff; padding: 18px 40px; border-radius: 12px; text-decoration: none; font-weight: 900; text-transform: uppercase; letter-spacing: 1px; font-size: 15px; box-shadow: 0 10px 25px rgba(46,109,255,0.3);">⬇ Download The Ticket From Here</a>
-          </div>
-        </div>
-
         <!-- Footer -->
-        <div style="text-align: center; padding-top: 20px; border-top: 1px solid rgba(255,255,255,0.05);">
-           <p style="margin: 0; color: rgba(255,255,255,0.6); font-size: 13px; margin-bottom: 10px;">Event: <strong>${data.eventName}</strong></p>
-           <p style="margin: 0; color: rgba(255,255,255,0.6); font-size: 13px; margin-bottom: 20px;">Date & Time: <strong>${data.eventDate}</strong></p>
-           <p style="margin: 0; color: rgba(255,255,255,0.3); font-size: 11px; letter-spacing: 1px;">&copy; ${new Date().getFullYear()} NIGHTPASS.LK | SECURE TICKETING</p>
+        <div style="text-align: center; margin-top: 48px; border-top: 1px solid #e2e8f0; padding-top: 24px;">
+          <p style="margin: 0; color: #94a3b8; font-size: 12px; line-height: 1.5;">
+            &copy; ${new Date().getFullYear()} NIGHTPASS.LK. All rights reserved.<br>
+            This is an automated confirmation of your purchase. For support, please reply to this email.
+          </p>
         </div>
 
       </div>
@@ -157,7 +152,7 @@ const sendEmail = async ({ to, subject, data }) => {
         res.on('data', (chunk) => { responseBody += chunk; });
         res.on('end', () => {
           if (res.statusCode >= 200 && res.statusCode < 300) {
-            console.log('[RESEND] Premium email sent successfully');
+            console.log('[RESEND] Professional Light-Mode email sent successfully');
             resolve({ success: true, details: JSON.parse(responseBody) });
           } else {
             console.error('[RESEND] API Error:', responseBody);
@@ -181,7 +176,7 @@ const sendEmail = async ({ to, subject, data }) => {
     });
 
   } catch (error) {
-    console.error('Error in sendEmail (Premium):', error.message);
+    console.error('Error in sendEmail (Professional):', error.message);
     return { success: false, error: error.message || "Unknown API error" };
   }
 };
