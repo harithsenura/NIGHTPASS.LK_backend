@@ -18,5 +18,6 @@ router.post('/verify-availability', ticketController.verifyAvailability);
 
 router.post('/find', ticketController.findPurchase); // Keep public for guest find feature
 router.get('/purchase/:id', ticketController.getPurchaseById);
+router.get('/download/:id', ticketController.downloadTicket);
 
 module.exports = router;
