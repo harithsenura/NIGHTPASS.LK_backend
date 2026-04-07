@@ -61,6 +61,7 @@ const signUp = async (req, res) => {
       },
     });
   } catch (error) {
+    console.error('Signup Error:', error);
     res.status(500).json({ message: 'Something went wrong on the server', error: error.message });
   }
 };
