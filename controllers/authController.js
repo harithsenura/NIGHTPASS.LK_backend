@@ -17,7 +17,7 @@ const setTokenCookie = (res, token) => {
 
 const signUp = async (req, res) => {
   try {
-    let { name, email, password } = req.body;
+    let { name, email, password, isOrganizer } = req.body;
     email = email.toLowerCase().trim();
     
     // Sanitize user name
@@ -38,6 +38,7 @@ const signUp = async (req, res) => {
       name: sanitizedName,
       email,
       password: hashedPassword,
+      isOrganizer: isOrganizer || false,
     });
 
     await newUser.save();
@@ -56,6 +57,7 @@ const signUp = async (req, res) => {
         id: newUser._id,
         name: newUser.name,
         email: newUser.email,
+        isOrganizer: newUser.isOrganizer,
       },
     });
   } catch (error) {
@@ -94,6 +96,7 @@ const signIn = async (req, res) => {
         id: user._id,
         name: user.name,
         email: user.email,
+        isOrganizer: user.isOrganizer,
       },
     });
   } catch (error) {
@@ -141,6 +144,7 @@ const googleLogin = async (req, res) => {
         id: user._id,
         name: user.name,
         email: user.email,
+        isOrganizer: user.isOrganizer,
       },
     });
   } catch (error) {
