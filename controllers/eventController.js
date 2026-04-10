@@ -6,6 +6,8 @@ const TicketPurchase = require('../models/TicketPurchase');
 const getEvents = async (req, res) => {
   try {
     const events = await Event.find()
+      .select('-image -coverPhoto -artists.image -guidelines.image')
+      .populate('organizer', 'name email')
       .sort({ createdAt: -1 });
     res.status(200).json(events);
   } catch (error) {
@@ -142,7 +144,7 @@ const getAdminOverview = async (req, res) => {
     
     let topEventData = null;
     if (topEventId) {
-      const topEventObj = await Event.findById(topEventId);
+      const topEventObj = await Event.findById(topEventId).select('title');
       if (topEventObj) {
         topEventData = {
           name: topEventObj.title,
@@ -152,7 +154,10 @@ const getAdminOverview = async (req, res) => {
     }
 
     // Get all events to construct the events list
-    const allEvents = await Event.find().populate('organizer', 'name email').sort({ createdAt: -1 });
+    const allEvents = await Event.find()
+      .select('title status capacity organizer')
+      .populate('organizer', 'name email')
+      .sort({ createdAt: -1 });
     const eventsList = allEvents.map(evt => {
       const id = evt._id.toString();
       const st = eventStatsMap[id] || { sold: 0, revenue: 0 };
