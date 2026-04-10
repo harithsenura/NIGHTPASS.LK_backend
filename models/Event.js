@@ -40,6 +40,10 @@ const eventSchema = new mongoose.Schema({
   time: {
     type: String,
   },
+  organizer: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User',
+  },
   // Detailed Sections
   description: {
     type: String,

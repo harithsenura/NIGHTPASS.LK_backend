@@ -53,7 +53,8 @@ const createEvent = async (req, res) => {
       venueMapLink,
       transportPublic,
       transportDriving,
-      artists
+      artists,
+      organizer: req.user ? req.user._id : undefined
     });
 
     await newEvent.save();
@@ -151,7 +152,7 @@ const getAdminOverview = async (req, res) => {
     }
 
     // Get all events to construct the events list
-    const allEvents = await Event.find().sort({ createdAt: -1 });
+    const allEvents = await Event.find().populate('organizer', 'name email').sort({ createdAt: -1 });
     const eventsList = allEvents.map(evt => {
       const id = evt._id.toString();
       const st = eventStatsMap[id] || { sold: 0, revenue: 0 };
@@ -168,7 +169,9 @@ const getAdminOverview = async (req, res) => {
         status: evt.status,
         sold: st.sold,
         total: tot,
-        revenue: st.revenue
+        revenue: st.revenue,
+        organizerName: evt.organizer ? evt.organizer.name : 'Unknown',
+        organizerEmail: evt.organizer ? evt.organizer.email : ''
       };
     });
 
