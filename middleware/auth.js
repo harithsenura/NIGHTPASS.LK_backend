@@ -61,4 +61,12 @@ const optionalProtect = async (req, res, next) => {
   }
 };
 
-module.exports = { protect, admin, optionalProtect };
+const adminOrOrganizer = (req, res, next) => {
+  if (req.user && (req.user.isAdmin || req.user.isOrganizer)) {
+    next();
+  } else {
+    res.status(403).json({ message: 'Not authorized as an admin or organizer' });
+  }
+};
+
+module.exports = { protect, admin, optionalProtect, adminOrOrganizer };
