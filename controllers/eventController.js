@@ -7,7 +7,6 @@ const getEvents = async (req, res) => {
   try {
     const events = await Event.find()
       .select('-image -coverPhoto -artists.image -guidelines.image')
-      .populate('organizer', 'name email')
       .sort({ createdAt: -1 });
     res.status(200).json(events);
   } catch (error) {
