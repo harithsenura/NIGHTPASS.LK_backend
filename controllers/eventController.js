@@ -217,6 +217,17 @@ const getAdminOverview = async (req, res) => {
   }
 };
 
+// Get events created by the current logged-in organizer
+const getMyEvents = async (req, res) => {
+  try {
+    const events = await Event.find({ organizer: req.user._id })
+      .sort({ createdAt: -1 });
+    res.status(200).json(events);
+  } catch (error) {
+    res.status(500).json({ message: 'Error fetching your events', error: error.message });
+  }
+};
+
 module.exports = {
   getEvents,
   getEventById,
@@ -224,5 +235,6 @@ module.exports = {
   updateEvent,
   deleteEvent,
   getAdminOverview,
-  getEventImage
+  getEventImage,
+  getMyEvents
 };
