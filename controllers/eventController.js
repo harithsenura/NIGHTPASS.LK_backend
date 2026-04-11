@@ -79,9 +79,23 @@ const createEvent = async (req, res) => {
 // Update an event
 const updateEvent = async (req, res) => {
   try {
+    const updateData = { ...req.body };
+
+    // Transform highlights/guidelines from [{text, icon}] objects to plain strings
+    if (updateData.highlights && Array.isArray(updateData.highlights)) {
+      updateData.highlights = updateData.highlights.map(h => 
+        typeof h === 'object' && h.text !== undefined ? h.text : h
+      );
+    }
+    if (updateData.guidelines && Array.isArray(updateData.guidelines)) {
+      updateData.guidelines = updateData.guidelines.map(g => 
+        typeof g === 'object' && g.text !== undefined ? g.text : g
+      );
+    }
+
     const updatedEvent = await Event.findByIdAndUpdate(
       req.params.id,
-      { $set: req.body },
+      { $set: updateData },
       { new: true, runValidators: true }
     );
     
