@@ -14,6 +14,17 @@ const getEvents = async (req, res) => {
   }
 };
 
+// Delete an event
+const deleteEvent = async (req, res) => {
+  try {
+    const deletedEvent = await Event.findByIdAndDelete(req.params.id);
+    if (!deletedEvent) return res.status(404).json({ message: 'Event not found' });
+    res.status(200).json({ message: 'Event deleted successfully' });
+  } catch (error) {
+    res.status(500).json({ message: 'Error deleting event', error: error.message });
+  }
+};
+
 // Get single event by ID
 const getEventById = async (req, res) => {
   try {
@@ -197,6 +208,7 @@ module.exports = {
   getEventById,
   createEvent,
   updateEvent,
+  deleteEvent,
   getAdminOverview,
   getEventImage
 };

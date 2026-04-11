@@ -1,0 +1,8 @@
+
+> backend@1.0.0 dev
+> node index.js
+
+[dotenv@17.3.1] injecting env (16) from .env -- tip: ⚙️  override existing env vars with { override: true }
+Server running on port 5001
+Local network access via: http://172.20.10.3:5001
+MongoDB connected successfully
