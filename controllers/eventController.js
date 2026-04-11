@@ -6,7 +6,7 @@ const TicketPurchase = require('../models/TicketPurchase');
 const getEvents = async (req, res) => {
   try {
     const events = await Event.find()
-      .select('-image -coverPhoto -artists.image -guidelines.image')
+      .select('title date venue location price category status createdAt trailerUrl')
       .sort({ createdAt: -1 });
     res.status(200).json(events);
   } catch (error) {
@@ -221,7 +221,8 @@ const getAdminOverview = async (req, res) => {
 const getMyEvents = async (req, res) => {
   try {
     const events = await Event.find({ organizer: req.user._id })
-      .sort({ createdAt: -1 });
+      .sort({ createdAt: -1 })
+      .limit(1); // Only send latest to save bandwidth
     res.status(200).json(events);
   } catch (error) {
     res.status(500).json({ message: 'Error fetching your events', error: error.message });
