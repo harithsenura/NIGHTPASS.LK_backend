@@ -1,5 +1,6 @@
 const Event = require('../models/Event');
 const User = require('../models/User');
+const Ticket = require('../models/Ticket');
 const TicketPurchase = require('../models/TicketPurchase');
 
 // Get all events (exclude large fields for fast loading)
@@ -70,6 +71,20 @@ const createEvent = async (req, res) => {
     });
 
     await newEvent.save();
+
+    // Create tickets if provided
+    if (req.body.tickets && Array.isArray(req.body.tickets)) {
+      for (const t of req.body.tickets) {
+        await new Ticket({
+          eventId: newEvent._id,
+          name: t.name,
+          price: Number(t.price) || 0,
+          quantity: Number(t.quantity) || 0,
+          customStatus: t.customStatus || ''
+        }).save();
+      }
+    }
+
     res.status(201).json(newEvent);
   } catch (error) {
     res.status(500).json({ message: 'Error creating event', error: error.message });
@@ -101,6 +116,24 @@ const updateEvent = async (req, res) => {
     
     if (!updatedEvent) {
       return res.status(404).json({ message: 'Event not found' });
+    }
+
+    // Sync tickets if provided
+    if (req.body.tickets && Array.isArray(req.body.tickets)) {
+      for (const t of req.body.tickets) {
+        // Upsert by name for this specific event
+        await Ticket.findOneAndUpdate(
+          { eventId: req.params.id, name: t.name },
+          { 
+            $set: { 
+              price: Number(t.price) || 0, 
+              quantity: Number(t.quantity) || 0,
+              customStatus: t.customStatus || ''
+            } 
+          },
+          { upsert: true, new: true }
+        );
+      }
     }
     
     res.status(200).json(updatedEvent);
