@@ -1,3 +1,4 @@
+const mongoose = require('mongoose');
 const Event = require('../models/Event');
 const User = require('../models/User');
 const Ticket = require('../models/Ticket');
@@ -74,14 +75,19 @@ const createEvent = async (req, res) => {
 
     // Create tickets if provided
     if (req.body.tickets && Array.isArray(req.body.tickets)) {
+      console.log(`[CREATE EVENT] Saving ${req.body.tickets.length} tickets for event ${newEvent._id}`);
       for (const t of req.body.tickets) {
-        await new Ticket({
-          eventId: newEvent._id,
-          name: t.name,
-          price: Number(t.price) || 0,
-          quantity: Number(t.quantity) || 0,
-          customStatus: t.customStatus || ''
-        }).save();
+        try {
+          await new Ticket({
+            eventId: newEvent._id,
+            name: t.name,
+            price: Number(t.price) || 0,
+            quantity: Number(t.quantity) || 0,
+            customStatus: t.customStatus || ''
+          }).save();
+        } catch (ticketErr) {
+          console.error(`[CREATE EVENT] Failed to save ticket ${t.name}:`, ticketErr.message);
+        }
       }
     }
 
@@ -120,28 +126,36 @@ const updateEvent = async (req, res) => {
 
     // Sync tickets if provided
     if (req.body.tickets && Array.isArray(req.body.tickets)) {
+      console.log(`[UPDATE EVENT] Syncing ${req.body.tickets.length} tickets for event ${req.params.id}`);
       const incomingTicketNames = req.body.tickets.map(t => t.name);
+      const eventObjectId = new mongoose.Types.ObjectId(req.params.id);
       
-      // 1. Delete tickets that are NOT in the incoming list AND have 0 sales
-      await Ticket.deleteMany({
-        eventId: req.params.id,
-        name: { $nin: incomingTicketNames },
-        sold: 0
-      });
+      try {
+        // 1. Delete tickets that are NOT in the incoming list AND have 0 sales
+        const deleteRes = await Ticket.deleteMany({
+          eventId: eventObjectId,
+          name: { $nin: incomingTicketNames },
+          sold: 0
+        });
+        console.log(`[UPDATE EVENT] Deleted ${deleteRes.deletedCount} old tickets`);
 
-      // 2. Upsert incoming tickets
-      for (const t of req.body.tickets) {
-        await Ticket.findOneAndUpdate(
-          { eventId: req.params.id, name: t.name },
-          { 
-            $set: { 
-              price: Number(t.price) || 0, 
-              quantity: Number(t.quantity) || 0,
-              customStatus: t.customStatus || ''
-            } 
-          },
-          { upsert: true, new: true }
-        );
+        // 2. Upsert incoming tickets
+        for (const t of req.body.tickets) {
+          await Ticket.findOneAndUpdate(
+            { eventId: eventObjectId, name: t.name },
+            { 
+              $set: { 
+                price: Number(t.price) || 0, 
+                quantity: Number(t.quantity) || 0,
+                customStatus: t.customStatus || ''
+              } 
+            },
+            { upsert: true, new: true }
+          );
+        }
+        console.log(`[UPDATE EVENT] Successfully synced all tickets`);
+      } catch (syncErr) {
+        console.error(`[UPDATE EVENT] Ticket sync error:`, syncErr.message);
       }
     }
     
