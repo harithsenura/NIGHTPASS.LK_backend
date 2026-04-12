@@ -43,41 +43,23 @@ const getEventById = async (req, res) => {
 // Create a new event
 const createEvent = async (req, res) => {
   try {
-    const { 
-      title, date, venue, price, image, coverPhoto, attendees, 
-      status, artist, location, time, trailerUrl,
-      venueAddress, venueMapLink, transportPublic, transportDriving,
-      artists, tickets
-    } = req.body;
+    const incomingTickets = req.body.tickets || [];
+    const eventData = { ...req.body };
+    delete eventData.tickets; // Stripping tickets to handle them separately
     
     const newEvent = new Event({
-      title,
-      date,
-      venue,
-      price,
-      image,
-      coverPhoto,
-      attendees,
-      status,
-      artist,
-      location,
-      time,
-      trailerUrl,
-      venueAddress,
-      venueMapLink,
-      transportPublic,
-      transportDriving,
-      artists,
+      ...eventData,
       organizer: req.user ? req.user._id : undefined
     });
 
     await newEvent.save();
 
     // Create tickets parallelly if provided
-    if (tickets && Array.isArray(tickets)) {
-      console.log(`[CREATE EVENT] Saving ${tickets.length} tickets for event ${newEvent._id}`);
-      await Promise.all(tickets.map(async (t) => {
+    if (incomingTickets && Array.isArray(incomingTickets) && incomingTickets.length > 0) {
+      console.log(`[CREATE EVENT] Saving ${incomingTickets.length} tickets for event ${newEvent._id}`);
+      await Promise.all(incomingTickets.map(async (t) => {
         try {
+          if (!t.name) return; // Skip invalid tickets
           await new Ticket({
             eventId: newEvent._id,
             name: t.name,
@@ -86,7 +68,7 @@ const createEvent = async (req, res) => {
             customStatus: t.customStatus || ''
           }).save();
         } catch (ticketErr) {
-          console.error(`[CREATE EVENT] Failed to save ticket ${t.name}:`, ticketErr.message);
+          console.error(`[CREATE EVENT] Failed to save ticket ${t.name || 'Unknown'}:`, ticketErr.message);
         }
       }));
     }
@@ -100,8 +82,9 @@ const createEvent = async (req, res) => {
 // Update an event
 const updateEvent = async (req, res) => {
   try {
-    const { tickets, ...restBody } = req.body;
-    const updateData = { ...restBody };
+    const incomingTickets = req.body.tickets || [];
+    const updateData = { ...req.body };
+    delete updateData.tickets; // Crucial: Remove tickets from main event update object
 
     // Transform highlights/guidelines from [{text, icon}] objects to plain strings
     if (updateData.highlights && Array.isArray(updateData.highlights)) {
@@ -115,7 +98,7 @@ const updateEvent = async (req, res) => {
       );
     }
 
-    // 1. Update main event document (without tickets in the $set object)
+    // 1. Update main event document
     const updatedEvent = await Event.findByIdAndUpdate(
       req.params.id,
       { $set: updateData },
@@ -127,34 +110,37 @@ const updateEvent = async (req, res) => {
     }
 
     // 2. Sync tickets if provided
-    if (tickets && Array.isArray(tickets)) {
-      console.log(`[UPDATE EVENT] Syncing ${tickets.length} tickets for event ${req.params.id}`);
-      const incomingTicketNames = tickets.map(t => t.name);
+    if (Array.isArray(incomingTickets)) {
+      console.log(`[UPDATE EVENT] Syncing ${incomingTickets.length} tickets for event ${req.params.id}`);
+      const incomingTicketNames = incomingTickets.filter(t => t.name).map(t => t.name);
       const eventObjectId = new mongoose.Types.ObjectId(req.params.id);
       
       try {
-        // First delete old tickets sequentially (safer for synchronization)
+        // First delete old tickets that are NOT in the incoming list and have 0 sales
         const deleteRes = await Ticket.deleteMany({
           eventId: eventObjectId,
           name: { $nin: incomingTicketNames },
           sold: 0
         });
-        console.log(`[UPDATE EVENT] Deleted ${deleteRes.deletedCount} old tickets`);
+        console.log(`[UPDATE EVENT] Deleted ${deleteRes.deletedCount} old/removed tickets`);
 
         // Parallelize upserting of incoming tickets
-        await Promise.all(tickets.map(async (t) => {
-          await Ticket.findOneAndUpdate(
-            { eventId: eventObjectId, name: t.name },
-            { 
-              $set: { 
-                price: Number(t.price) || 0, 
-                quantity: Number(t.quantity) || 0,
-                customStatus: t.customStatus || ''
-              } 
-            },
-            { upsert: true, new: true }
-          );
-        }));
+        if (incomingTickets.length > 0) {
+          await Promise.all(incomingTickets.map(async (t) => {
+            if (!t.name) return; // Skip invalid entries
+            await Ticket.findOneAndUpdate(
+              { eventId: eventObjectId, name: t.name },
+              { 
+                $set: { 
+                  price: Number(t.price) || 0, 
+                  quantity: Number(t.quantity) || 0,
+                  customStatus: t.customStatus || ''
+                } 
+              },
+              { upsert: true, new: true }
+            );
+          }));
+        }
         
         console.log(`[UPDATE EVENT] Successfully synced all tickets parallelly`);
       } catch (syncErr) {
