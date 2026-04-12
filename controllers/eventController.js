@@ -47,7 +47,7 @@ const createEvent = async (req, res) => {
       title, date, venue, price, image, coverPhoto, attendees, 
       status, artist, location, time, trailerUrl,
       venueAddress, venueMapLink, transportPublic, transportDriving,
-      artists
+      artists, tickets
     } = req.body;
     
     const newEvent = new Event({
@@ -73,10 +73,10 @@ const createEvent = async (req, res) => {
 
     await newEvent.save();
 
-    // Create tickets if provided
-    if (req.body.tickets && Array.isArray(req.body.tickets)) {
-      console.log(`[CREATE EVENT] Saving ${req.body.tickets.length} tickets for event ${newEvent._id}`);
-      for (const t of req.body.tickets) {
+    // Create tickets parallelly if provided
+    if (tickets && Array.isArray(tickets)) {
+      console.log(`[CREATE EVENT] Saving ${tickets.length} tickets for event ${newEvent._id}`);
+      await Promise.all(tickets.map(async (t) => {
         try {
           await new Ticket({
             eventId: newEvent._id,
@@ -88,7 +88,7 @@ const createEvent = async (req, res) => {
         } catch (ticketErr) {
           console.error(`[CREATE EVENT] Failed to save ticket ${t.name}:`, ticketErr.message);
         }
-      }
+      }));
     }
 
     res.status(201).json(newEvent);
@@ -100,7 +100,8 @@ const createEvent = async (req, res) => {
 // Update an event
 const updateEvent = async (req, res) => {
   try {
-    const updateData = { ...req.body };
+    const { tickets, ...restBody } = req.body;
+    const updateData = { ...restBody };
 
     // Transform highlights/guidelines from [{text, icon}] objects to plain strings
     if (updateData.highlights && Array.isArray(updateData.highlights)) {
@@ -114,6 +115,7 @@ const updateEvent = async (req, res) => {
       );
     }
 
+    // 1. Update main event document (without tickets in the $set object)
     const updatedEvent = await Event.findByIdAndUpdate(
       req.params.id,
       { $set: updateData },
@@ -124,14 +126,14 @@ const updateEvent = async (req, res) => {
       return res.status(404).json({ message: 'Event not found' });
     }
 
-    // Sync tickets if provided
-    if (req.body.tickets && Array.isArray(req.body.tickets)) {
-      console.log(`[UPDATE EVENT] Syncing ${req.body.tickets.length} tickets for event ${req.params.id}`);
-      const incomingTicketNames = req.body.tickets.map(t => t.name);
+    // 2. Sync tickets if provided
+    if (tickets && Array.isArray(tickets)) {
+      console.log(`[UPDATE EVENT] Syncing ${tickets.length} tickets for event ${req.params.id}`);
+      const incomingTicketNames = tickets.map(t => t.name);
       const eventObjectId = new mongoose.Types.ObjectId(req.params.id);
       
       try {
-        // 1. Delete tickets that are NOT in the incoming list AND have 0 sales
+        // First delete old tickets sequentially (safer for synchronization)
         const deleteRes = await Ticket.deleteMany({
           eventId: eventObjectId,
           name: { $nin: incomingTicketNames },
@@ -139,8 +141,8 @@ const updateEvent = async (req, res) => {
         });
         console.log(`[UPDATE EVENT] Deleted ${deleteRes.deletedCount} old tickets`);
 
-        // 2. Upsert incoming tickets
-        for (const t of req.body.tickets) {
+        // Parallelize upserting of incoming tickets
+        await Promise.all(tickets.map(async (t) => {
           await Ticket.findOneAndUpdate(
             { eventId: eventObjectId, name: t.name },
             { 
@@ -152,8 +154,9 @@ const updateEvent = async (req, res) => {
             },
             { upsert: true, new: true }
           );
-        }
-        console.log(`[UPDATE EVENT] Successfully synced all tickets`);
+        }));
+        
+        console.log(`[UPDATE EVENT] Successfully synced all tickets parallelly`);
       } catch (syncErr) {
         console.error(`[UPDATE EVENT] Ticket sync error:`, syncErr.message);
       }
