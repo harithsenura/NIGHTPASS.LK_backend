@@ -120,8 +120,17 @@ const updateEvent = async (req, res) => {
 
     // Sync tickets if provided
     if (req.body.tickets && Array.isArray(req.body.tickets)) {
+      const incomingTicketNames = req.body.tickets.map(t => t.name);
+      
+      // 1. Delete tickets that are NOT in the incoming list AND have 0 sales
+      await Ticket.deleteMany({
+        eventId: req.params.id,
+        name: { $nin: incomingTicketNames },
+        sold: 0
+      });
+
+      // 2. Upsert incoming tickets
       for (const t of req.body.tickets) {
-        // Upsert by name for this specific event
         await Ticket.findOneAndUpdate(
           { eventId: req.params.id, name: t.name },
           { 
